@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1",
+  "track": "B",
+  "trade_date": "2000-01-03",
+  "recorded_at": "2000-01-03T16:10:00+09:00",
+  "close": {
+    "ktb3y_fut": 100.0,
+    "ktb10y_fut": 100.0,
+    "kospi200": 100.0,
+    "usdkrw": 1000.0
+  },
+  "source": "예시",
+  "note": "형식 예시. 모든 값은 가상이며 실제 시장값이 아님."
+}

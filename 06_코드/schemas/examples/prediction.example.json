@@ -1,0 +1,33 @@
+{
+  "schema_version": "0.1",
+  "track": "B",
+  "trade_date": "2000-01-03",
+  "prompt_version": "v1.0",
+  "model_id": "EXAMPLE-MODEL-ID",
+  "executed_at": "2000-01-03T10:03:00+09:00",
+  "input_manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "primary": {
+    "instrument": "ktb10y_fut",
+    "direction": "up",
+    "prob": { "up": 0.5, "neutral": 0.3, "down": 0.2 },
+    "expected_ticks": 3,
+    "confidence": "mid",
+    "duration_view": "long"
+  },
+  "secondary": {
+    "ktb3y_fut": { "direction": "up", "expected_ticks": 2 },
+    "kospi200": { "direction": "neutral", "expected_return_pct": 0.0 },
+    "usdkrw": { "direction": "down", "expected_change_krw": -1.0 }
+  },
+  "rationale": {
+    "up_drivers": [
+      { "factor": "예시 요인", "evidence": "예시 수치 또는 문장", "source": "eugene" }
+    ],
+    "down_drivers": [
+      { "factor": "예시 요인", "evidence": "예시 수치 또는 문장", "source": "snapshot" }
+    ],
+    "already_priced_in": ["예시: 오전 움직임에 이미 반영된 요인"],
+    "invalidation_conditions": ["예시: 이 조건이 나타나면 예측 무효"],
+    "low_confidence_reasons": ["예시: 확신이 낮은 이유"]
+  }
+}

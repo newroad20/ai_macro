@@ -1,0 +1,1 @@
+{"date": "2026-11-05", "track": "B", "dry_run": true, "late": true, "status": "ok", "model_id": "claude-sonnet-5-5", "prompt_version": "v1.0", "executed_at": "2026-11-05T13:35:02+09:00", "cost_usd": 0.1901185, "duration_ms": 23063, "output_tokens": 3228, "detail": "", "raw_log": "99_로그\\runs\\2026-11-05_B_20261105T133502.jsonl"}

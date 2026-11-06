@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Answer (장 마감 정답, 예측 저장 이후에만 기록)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "track", "trade_date", "recorded_at", "close"],
+  "properties": {
+    "schema_version": { "const": "0.1" },
+    "track": { "enum": ["B"] },
+    "trade_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "recorded_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\+09:00$" },
+    "close": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ktb3y_fut", "ktb10y_fut", "kospi200", "usdkrw"],
+      "properties": {
+        "ktb3y_fut": { "type": "number" },
+        "ktb10y_fut": { "type": "number" },
+        "kospi200": { "type": "number" },
+        "usdkrw": { "type": "number" }
+      }
+    },
+    "source": { "type": "string", "description": "종가 출처" },
+    "note": { "type": "string" }
+  }
+}

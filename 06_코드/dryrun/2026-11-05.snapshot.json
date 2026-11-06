@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1",
+  "track": "B",
+  "trade_date": "2026-11-05",
+  "scheduled_at": "2026-11-05T10:00:00+09:00",
+  "captured_at": "2026-11-05T10:00:30+09:00",
+  "reports": [
+    { "source": "daol", "file": "다올투자증권_채권시황_DAOL Daily Bond Morning Brief_20261105.pdf", "pdf_created_at": "2026-11-05T09:27:22+09:00", "obtained_at": "2026-11-05T09:57:00+09:00" },
+    { "source": "eugene", "file": "유진투자증권_채권전략_Eugenes FICC Update_20261105.pdf", "pdf_created_at": "2026-11-05T09:50:46+09:00", "obtained_at": "2026-11-05T10:08:00+09:00" }
+  ],
+  "us_close": {
+    "as_of_date": "2026-11-04",
+    "sp500": { "close": 7688.62, "change_pct": 1.58 },
+    "nasdaq": { "close": 25736.51, "change_pct": 1.44 }
+  },
+  "kr": {
+    "ktb3y_fut": { "prev_close": 103.55, "value_at_t": 103.55 },
+    "ktb10y_fut": { "prev_close": 108.5, "value_at_t": 108.5 },
+    "kospi200": { "prev_close": 5683.8, "value_at_t": 5683.8 },
+    "usdkrw": { "prev_close": 1341.5, "value_at_t": 1341.5 }
+  },
+  "note": "DRY RUN 전용. T 시점 값은 기록되지 않아 전일 종가로 대체했고, kospi200 자리에는 KOSPI 지수를 넣은 가짜 값이다. 미국 주가지수만 사용자가 제공한 실제 11/4 값이다. 평가에 사용 금지."
+}
