@@ -1,0 +1,48 @@
+{
+  "schema_version": "0.1",
+  "track": "B",
+  "trade_date": "2026-11-09",
+  "scheduled_at": "2026-11-09T10:00:00+09:00",
+  "captured_at": "2026-11-09T09:45:45+09:00",
+  "reports": [
+    {
+      "source": "daol",
+      "file": "다올투자증권_채권시황_DAOL Daily Bond Morning Brief_20261109.pdf",
+      "pdf_created_at": "2026-11-09T08:01:31+09:00",
+      "obtained_at": "2026-11-09T09:25:00+09:00"
+    },
+    {
+      "source": "eugene",
+      "file": "유진투자증권_채권전략_Eugenes FICC Update_20261109.pdf",
+      "pdf_created_at": "2026-11-09T08:56:15+09:00",
+      "obtained_at": "2026-11-09T09:24:00+09:00"
+    }
+  ],
+  "us_close": {
+    "as_of_date": "2026-11-06",
+    "sp500": {
+      "change_pct": 0.31
+    },
+    "nasdaq": {
+      "change_pct": 1.09
+    }
+  },
+  "kr": {
+    "ktb3y_fut": {
+      "prev_close": 103.85,
+      "value_at_t": 103.85
+    },
+    "ktb10y_fut": {
+      "prev_close": 109.37,
+      "value_at_t": 109.37
+    },
+    "kospi200": {
+      "prev_close": 783.23,
+      "value_at_t": 783.23
+    },
+    "usdkrw": {
+      "prev_close": 1356.6,
+      "value_at_t": 1356.6
+    }
+  }
+}

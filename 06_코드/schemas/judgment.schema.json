@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Judgment (근거 채점 결과, 정답을 본 별도 세션이 작성)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "track", "trade_date", "judge_prompt_version", "judge_model_id", "judged_at",
+               "prediction_executed_at", "evidence_checks", "priced_in", "invalidation", "reasoning_outcome",
+               "analyst_dependence", "scores", "lesson"],
+  "$defs": {
+    "score": { "type": "integer", "minimum": 1, "maximum": 5 }
+  },
+  "properties": {
+    "schema_version": { "const": "0.1" },
+    "track": { "enum": ["B"] },
+    "trade_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "judge_prompt_version": { "type": "string" },
+    "judge_model_id": { "type": "string" },
+    "judged_at": { "type": "string" },
+    "prediction_executed_at": { "type": "string" },
+    "evidence_checks": {
+      "type": "array",
+      "description": "예측 근거(up/down_drivers)의 evidence 수치·문장을 원문과 대조",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["side", "factor", "claimed", "verdict", "source_value", "note"],
+        "properties": {
+          "side": { "enum": ["up", "down"] },
+          "factor": { "type": "string" },
+          "claimed": { "type": "string", "description": "예측이 인용한 수치·문장" },
+          "verdict": { "enum": ["correct", "misread", "unsupported", "not_checkable"],
+                       "description": "correct=원문과 일치, misread=원문에 있으나 다른 값/행을 읽음, unsupported=원문에 없음, not_checkable=수치 없는 해석" },
+          "source_value": { "type": "string", "description": "원문의 실제 값과 위치(리포트·표·행). 해당 없으면 빈 문자열" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "priced_in": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "score"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim", "verdict", "reason"],
+            "properties": {
+              "claim": { "type": "string" },
+              "verdict": { "enum": ["consistent", "inconsistent", "undeterminable"] },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "score": { "$ref": "#/$defs/score" }
+      }
+    },
+    "invalidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "score"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["condition", "observable", "triggered", "reason"],
+            "properties": {
+              "condition": { "type": "string" },
+              "observable": { "type": "boolean", "description": "임계값·대상이 명확해 사후에 판정 가능한가" },
+              "triggered": { "enum": ["yes", "no", "unknown"], "description": "주어진 종가 데이터로 판정. 장중 경로가 필요하면 unknown" },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "score": { "$ref": "#/$defs/score" }
+      }
+    },
+    "reasoning_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "dominant_side_in_hindsight", "explanation"],
+      "properties": {
+        "category": { "enum": ["right_for_right_reasons", "right_for_wrong_reasons", "wrong_but_reasonable", "wrong_and_flawed", "neutral_call"] },
+        "dominant_side_in_hindsight": { "enum": ["up_drivers", "down_drivers", "mixed", "undeterminable"] },
+        "explanation": { "type": "string" }
+      }
+    },
+    "analyst_dependence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "independent_insights", "explanation"],
+      "properties": {
+        "level": { "enum": ["low", "mid", "high"], "description": "결론이 리포트의 해석·전망 문장을 얼마나 그대로 따랐는가" },
+        "independent_insights": { "type": "array", "items": { "type": "string" }, "description": "리포트에 없는 AI 고유의 연결·판단" },
+        "explanation": { "type": "string" }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_fidelity", "priced_in", "invalidation_quality", "reasoning_quality", "overall"],
+      "properties": {
+        "evidence_fidelity": { "$ref": "#/$defs/score" },
+        "priced_in": { "$ref": "#/$defs/score" },
+        "invalidation_quality": { "$ref": "#/$defs/score" },
+        "reasoning_quality": { "$ref": "#/$defs/score" },
+        "overall": { "$ref": "#/$defs/score" }
+      }
+    },
+    "lesson": { "type": "string", "description": "다음 프롬프트·요인 개선에 쓸 교훈 한두 문장 (특정 날짜의 정답을 암기시키는 내용 금지)" }
+  }
+}

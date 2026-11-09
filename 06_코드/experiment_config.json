@@ -2,8 +2,16 @@
   "experiment": "오전 매크로 정보 기반 국내시장 잔여장 방향 예측",
   "config_version": "0.2",
   "tracks": {
-    "B": { "cutoff_time_kst": "10:00", "window": "T -> 당일 장 마감", "status": "active" },
-    "A": { "cutoff_time_kst": null, "window": "장마감 후 -> 다음 거래일", "status": "planned" }
+    "B": {
+      "cutoff_time_kst": "10:00",
+      "window": "T -> 당일 장 마감",
+      "status": "active"
+    },
+    "A": {
+      "cutoff_time_kst": null,
+      "window": "장마감 후 -> 다음 거래일",
+      "status": "planned"
+    }
   },
   "late_tolerance_minutes": 5,
   "runner": {
@@ -15,9 +23,10 @@
   "tick_size": {
     "ktb10y_fut": 0.01,
     "ktb3y_fut": 0.01,
-    "verified": false
+    "verified": true,
+    "note": "KRX 3년·10년 국채선물 호가단위 0.01pt"
   },
-  "neutral_band_ticks": null,
+  "neutral_band_ticks": 3,
   "close_definition": {
     "ktb_futures": "KRX 공식 종가",
     "kospi200": "현물 지수 종가",
@@ -26,9 +35,14 @@
   },
   "primary_metric": "ktb10y_fut 비중립 예측의 방향 적중률 및 신호당 평균 획득 틱 (기준선 대비)",
   "pending": [
-    "tick_size 검증 (거래소 사양 확인)",
-    "neutral_band_ticks 확정 (과거 T->마감 변동폭 분포 기반) — null이면 정식 실행이 거부됨",
     "close_definition 확정 (종가 시각·출처 고정)",
     "runner.model 확정 (첫 정식 실행 전 고정, 이후 변경 시 새 버전)"
-  ]
+  ],
+  "neutral_band_note": "V0 시험운영 잠정값(2026-11-09 확정). 과거 분봉 확보 후 V1에서 T->마감 변동 분포로 재산정",
+  "judge": {
+    "model": "claude-opus-5",
+    "prompt_file": "prompts/judge_v1.0.md",
+    "timeout_seconds": 900,
+    "note": "예측 모델과 다른(상위) 모델로 채점해 자기 선호 편향을 줄임"
+  }
 }

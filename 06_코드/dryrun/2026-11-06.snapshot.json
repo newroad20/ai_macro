@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1",
+  "track": "B",
+  "trade_date": "2026-11-06",
+  "scheduled_at": "2026-11-06T10:00:00+09:00",
+  "captured_at": "2026-11-06T14:05:03+09:00",
+  "reports": [
+    { "source": "daol", "file": "다올투자증권_채권시황_DAOL Daily Bond Morning Brief_20261106.pdf", "pdf_created_at": "2026-11-06T08:15:30+09:00", "obtained_at": "2026-11-06T08:55:00+09:00" },
+    { "source": "eugene", "file": "유진투자증권_채권전략_Eugenes FICC Update_20261106.pdf", "pdf_created_at": "2026-11-06T08:39:52+09:00", "obtained_at": "2026-11-06T08:55:00+09:00" }
+  ],
+  "us_close": {
+    "as_of_date": "2026-11-05",
+    "sp500": { "change_pct": -4.36 },
+    "nasdaq": { "change_pct": -5.52 }
+  },
+  "kr": {
+    "ktb3y_fut": { "prev_close": 103.69, "value_at_t": 103.69 },
+    "ktb10y_fut": { "prev_close": 109.19, "value_at_t": 109.19 },
+    "kospi200": { "prev_close": 5383.8, "value_at_t": 5383.8 },
+    "usdkrw": { "prev_close": 1342.1, "value_at_t": 1342.1 }
+  },
+  "note": "시연(DRY RUN) 전용. 전일(11/05) 종가는 리포트 PDF 기준: 3년선물 103.69, 10년선물 109.19, 원/달러 1342.10. 미국 지수 등락률은 웹 보도(S&P500 -4.36%, 나스닥 -5.52%) 기준이며 거래소 자료로 확인하지 않았다. T(10:00) 시점 값은 확보하지 못해 전일 종가로 대체했다. kospi200 자리에는 KOSPI 지수(5383.8, 11/04 5683.8에 -5.28% 적용)를 넣은 대용 값이다. captured_at은 실제 기록 시각(14:05)이라 T보다 늦다(late). 평가에 사용 금지."
+}
