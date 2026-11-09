@@ -138,6 +138,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="결과를 시험 폴더에만 저장 (late 검사는 경고만)")
     ap.add_argument("--snapshot", help="스냅샷 경로 (기본: 정식 02_시장데이터/스냅샷/<트랙>/, 시험 06_코드/dryrun/...)")
     ap.add_argument("--allow-late", action="store_true", help="late 상태로 실행하고 04_예측결과/<트랙>/late/ 에 저장")
+    ap.add_argument("--allow-unfrozen", action="store_true", help="v0_freeze 와 다른 모델·프롬프트로 정식 실행 (의도한 변경일 때만)")
     args = ap.parse_args()
     date, track = args.date, args.track
 
@@ -180,6 +181,15 @@ def main():
 
     prompt_path = CODE / tcfg["prompt_file"]
     prompt_version = prompt_path.stem.split("_", 1)[1]
+    freeze = cfg.get("v0_freeze")
+    if freeze and track == "A" and date >= freeze["from"]:
+        drift = [f"{k}: 설정 {v} / 고정 {freeze[k]}" for k, v in
+                 (("model", cfg["runner"]["model"]), ("prompt_version", prompt_version)) if v != freeze[k]]
+        if drift and not args.dry_run and not args.allow_unfrozen:
+            fail("점검 기간 고정값과 다름 (v0_freeze):\n  " + "\n  ".join(drift)
+                 + "\n  의도한 변경이면 새 기간으로 기록하고 --allow-unfrozen")
+        for d in drift:
+            print(f"[경고] 고정값과 다름 — {d}")
     system_prompt = prompt_path.read_text(encoding="utf-8").format(
         neutral_band_ticks=neutral_band, tick_size=cfg["tick_size"]["ktb10y_fut"])
 

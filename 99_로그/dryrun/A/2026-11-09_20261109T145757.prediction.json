@@ -1,0 +1,86 @@
+{
+  "schema_version": "0.1",
+  "track": "A",
+  "trade_date": "2026-11-09",
+  "prompt_version": "A_v1.1",
+  "model_id": "claude-sonnet-5-5",
+  "executed_at": "2026-11-09T14:57:57+09:00",
+  "input_manifest_sha256": "19f186ab96c5574ac1382f2e5a8fae31e15b47e6ca71c0b6436346dd76ef8de6",
+  "primary": {
+    "instrument": "ktb10y_fut",
+    "direction": "neutral",
+    "prob": {
+      "up": 0.17,
+      "neutral": 0.5,
+      "down": 0.33
+    },
+    "expected_ticks": -7,
+    "confidence": "low",
+    "duration_view": "neutral"
+  },
+  "secondary": {
+    "ktb3y_fut": {
+      "direction": "neutral",
+      "expected_ticks": -3
+    },
+    "kospi200": {
+      "direction": "up",
+      "expected_return_pct": 1.5
+    },
+    "usdkrw": {
+      "direction": "neutral",
+      "expected_change_krw": 2
+    }
+  },
+  "rationale": {
+    "up_drivers": [
+      {
+        "factor": "증시 급락에 따른 안전자산 선호 지속 가능성 (코스피 서킷브레이커·매도 사이드카)",
+        "evidence": "유진: 증시 등락에 따라 금리도 연동되는 흐름, 외국인 3년 국채선물 순매수 지속. 다올: KOSPI -6.02%, KOSDAQ -5.03%",
+        "source": "eugene"
+      },
+      {
+        "factor": "정부 긴급 시장점검회의와 AI 투자 속도조절 우려 지속",
+        "evidence": "유진: 중간선거 이후 AI 관련 불안 지속, MS-오라클 AI 컴퓨팅 계약 종료 보도",
+        "source": "eugene"
+      }
+    ],
+    "down_drivers": [
+      {
+        "factor": "미국 고용 서프라이즈로 미국채 금리 상승, 12월 인상 기대 확대",
+        "evidence": "UST10Y 4.860%, +2.3bp (UST2Y +5.1bp). 비농업 고용 16.5만명 vs 예상 6.5만명, 12월 인상 확률 76%",
+        "source": "us_market"
+      },
+      {
+        "factor": "미국 기술주 반등으로 위험선호 회복 시 국내 안전자산 선호 되돌림",
+        "evidence": "Nasdaq +1.09%, S&P500 +0.31% (11/06)",
+        "source": "us_market"
+      },
+      {
+        "factor": "단기 급등(과매수)에 따른 되돌림 가능성",
+        "evidence": "10년 국채선물 전일 +18틱(snapshot prev_change 0.18), 1주 +133틱(다올 표). 국고10Y 1W -15.0bp(다올)",
+        "source": "daol"
+      },
+      {
+        "factor": "달러 강세·원화 약세로 외국인 자금 이탈 부담",
+        "evidence": "원/달러 1,356.6 (+14.5원), 야간 1,363.0원, DXY +0.7%",
+        "source": "eugene"
+      }
+    ],
+    "already_priced_in": [
+      "11/6 증시 급락에 따른 안전자산 선호와 10년선물 +18틱 상승",
+      "최근 1주 금리 급락(국고10Y 1W -15.0bp, 다올)",
+      "서킷브레이커 충격 일부"
+    ],
+    "invalidation_conditions": [
+      "10년 국채선물 종가가 전일 종가(109.37) 대비 +17틱 이상 (109.54 이상)",
+      "10년 국채선물 종가가 전일 종가 대비 -17틱 이하 (109.20 이하)",
+      "KOSPI200 종가가 전일 대비 -2% 이하"
+    ],
+    "low_confidence_reasons": [
+      "증시 폭락 국면으로 변동성이 매우 커 방향 불확실",
+      "미국 금리 상승·위험자산 반등(하락 요인)과 안전자산 선호 지속(상승 요인)이 상충",
+      "야간 선물 종가 정보 없음"
+    ]
+  }
+}

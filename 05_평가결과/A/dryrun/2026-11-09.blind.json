@@ -1,0 +1,108 @@
+{
+  "schema_version": "0.2",
+  "track": "A",
+  "trade_date": "2026-11-09",
+  "stage": "blind",
+  "variant": "main",
+  "judge_prompt_version": "A_blind_v2.0",
+  "judge_model_id": "claude-opus-5",
+  "judged_at": "2026-11-09T14:58:19+09:00",
+  "prediction_executed_at": "2026-11-09T14:57:57+09:00",
+  "cost_usd": 0.28258900000000003,
+  "answer_existed_at_judging": false,
+  "answer_shown": false,
+  "evidence_checks": [
+    {
+      "side": "up",
+      "factor": "증시 급락에 따른 안전자산 선호 지속 (서킷브레이커·사이드카)",
+      "claimed": "유진: 증시 등락에 따라 금리도 연동, 외국인 3년 국채선물 순매수 지속 / 다올: KOSPI -6.02%, KOSDAQ -5.03%",
+      "verdict": "correct",
+      "source_value": "유진 '국내 채권시장 동향': '코스피 서킷브레이커, 매도 사이드카가 연달아 발동…증시 등락에 따라 금리도 연동', '외국인 3년 국채선물 순매수 지속되며 금리 하락세 유지' / 다올 KR Stock(%) 1D: KOSPI -6.02, KOSDAQ -5.03",
+      "note": "리포트 두 건의 문장·표를 정확히 인용"
+    },
+    {
+      "side": "up",
+      "factor": "정부 긴급 시장점검회의와 AI 투자 속도조절 우려 지속",
+      "claimed": "유진: 중간선거 이후 AI 관련 불안 지속, MS-오라클 AI 컴퓨팅 계약 종료 보도",
+      "verdict": "correct",
+      "source_value": "유진 '전망 및 향후 주요 이벤트': '중간선거 이후 AI 관련 불안이 지속…MS가 오라클로부터 AI 컴퓨팅 자원 임대 계약을 단계적으로 종료한다는 보도' / 국내 동향: '이형일 부총리 등 긴급 시장상황점검회의가 소집됐지만 시장 안정에는 기여하지 못했음'",
+      "note": "수치 없는 서술이나 원문과 일치"
+    },
+    {
+      "side": "down",
+      "factor": "미국 고용 서프라이즈로 미국채 금리 상승, 12월 인상 기대 확대",
+      "claimed": "UST10Y 4.860%, +2.3bp (UST2Y +5.1bp). 비농업 16.5만명 vs 예상 6.5만명, 12월 인상 확률 76%",
+      "verdict": "correct",
+      "source_value": "다올 US Bond: UST10Y 4.860 / 1D +2.3, UST2Y 4.514 / 1D +5.1 (유진 표도 동일). 유진 2p: '비농업 고용 16.5만명 증가해 예상치(6.5만명) 크게 상회', '12월 연준의 금리 인상 확률은 고용 발표 후 76%까지 회복'",
+      "note": "행·열 모두 일치. 다만 UST10Y +2.3bp는 2Y +5.1bp 대비 소폭이라는 점(베어 플래트닝)은 언급 안 함"
+    },
+    {
+      "side": "down",
+      "factor": "미국 기술주 반등으로 위험선호 회복 시 안전자산 선호 되돌림",
+      "claimed": "Nasdaq +1.09%, S&P500 +0.31% (11/06)",
+      "verdict": "correct",
+      "source_value": "snapshot.us_close(as_of 2026-11-06): nasdaq +1.09, sp500 +0.31",
+      "note": "수치는 snapshot과 일치. 다만 유진은 같은 날을 '美 기술주 급락'으로 서술해 서사 충돌이 있으나 AI가 수치를 왜곡한 것은 아님"
+    },
+    {
+      "side": "down",
+      "factor": "단기 급등(과매수) 되돌림 가능성",
+      "claimed": "10년 국채선물 전일 +18틱(prev_change 0.18), 1주 +133틱(다올 표), 국고10Y 1W -15.0bp(다올)",
+      "verdict": "correct",
+      "source_value": "snapshot kr.ktb10y_fut.prev_change 0.18 / 다올 KTB Futures(tick): LKTBF 10Y 1D 18.0, 1W 133.0 / 다올 KR Bond 국고10Y 행: 3.855, 1D -2.0, 1W -15.0 (유진 표는 국고10년 1W -15.5)",
+      "note": "행·열 정확. 두 리포트의 1W 차이(-15.0 vs -15.5)는 무시 가능"
+    },
+    {
+      "side": "down",
+      "factor": "달러 강세·원화 약세로 외국인 자금 이탈 부담",
+      "claimed": "원/달러 1,356.6 (+14.5원), 야간 1,363.0원, DXY +0.7%",
+      "verdict": "correct",
+      "source_value": "유진 2p: '+14.50원 오른 1,356.60원 마감(야간 1,363.00원)', '달러인덱스…급등(DXY +0.7%)' (FX표 달러지수 102.28, 1D 0.7%)",
+      "note": "snapshot usdkrw prev_close 1356.6과도 일치"
+    }
+  ],
+  "invalidation_observability": [
+    {
+      "condition": "10년 국채선물 종가가 전일 종가(109.37) 대비 +17틱 이상 (109.54 이상)",
+      "observable": true,
+      "reason": "기록되는 10년 국채선물 당일 종가만으로 판정 가능. 기준가·환산값도 정확"
+    },
+    {
+      "condition": "10년 국채선물 종가가 전일 종가 대비 -17틱 이하 (109.20 이하)",
+      "observable": true,
+      "reason": "종가만으로 판정 가능. 다만 예상 -7틱의 하락 편향과 같은 방향이어서, 이 조건은 '논리 반증'이라기보다 변동폭 초과 여부만 시험함"
+    },
+    {
+      "condition": "KOSPI200 종가가 전일 대비 -2% 이하",
+      "observable": true,
+      "reason": "KOSPI200 당일 종가가 기록되므로 판정 가능. 2차 예측(KOSPI200 +1.5%)과 안전자산 선호 논리를 직접 시험"
+    }
+  ],
+  "reasoning_review": {
+    "magnitude_compared": true,
+    "probability_consistent": false,
+    "issues": [
+      "direction은 neutral인데 expected_ticks -7(10년), -3(3년)로 적지 않은 하락을 제시. 확률도 neutral 0.50 / down 0.33 / up 0.17로 중립이 과반인데 기대값은 -7틱에 가까워, 확률분포와 기대 틱이 정합적이지 않음",
+      "무효화 밴드가 ±17틱으로 예상치(-7틱)의 2배 이상 넓게 설정돼 실질적 반증력이 약함",
+      "2차 KOSPI200 +1.5%(up, 비교적 큰 폭)는 rationale 어디에도 근거가 제시되지 않음. 오히려 up_driver는 '증시 급락에 따른 안전자산 선호 지속'을 전제로 해 내부 논리와 상충",
+      "'미국 기술주 반등'이라는 down_driver는 유진 리포트의 '美 기술주 급락' 서술과 충돌하는데, 두 정보의 시점·정합성을 따지지 않고 병렬 사용",
+      "UST10Y +2.3bp는 UST2Y +5.1bp 대비 장기물 영향이 제한적(베어 플래트닝)인데, 10년 선물 하락 근거로 쓰면서 커브 형태 차이를 고려하지 않음",
+      "고용지표(11/6 발표)에 따른 미국 금리 상승이 D-1 국내 시간대 이후 이벤트라 미반영이라는 점은 implicit하게 처리했을 뿐 명시적으로 구분하지 않음(야간 선물 정보 부재만 언급)"
+    ],
+    "explanation": "상승(안전자산 선호 지속)과 하락(미 금리 상승·단기 급등 되돌림·원화 약세) 요인을 bp·틱 단위로 제시하고 already_priced_in까지 구분한 점은 양호하다. 최근 1주 +133틱의 급등을 되돌림 리스크로 본 판단도 합리적이다. 다만 중립 방향·낮은 확신도와 -7틱이라는 기대값, 과도하게 넓은 무효화 밴드, 근거 없는 KOSPI200 +1.5% 전망 등 내부 정합성 문제가 있다."
+  },
+  "analyst_dependence": {
+    "level": "mid",
+    "independent_insights": [
+      "다올의 KTB Futures 1W(+133틱)·국고10Y 1W -15.0bp를 '단기 과매수 되돌림' 리스크로 재해석 — 두 리포트 모두 되돌림 전망은 제시하지 않음",
+      "유진의 국내 안전자산 선호 서술과 snapshot의 미국 증시 상승(Nasdaq +1.09%)을 대조해 위험선호 회복 시나리오를 구성",
+      "이미 반영된 요인(11/6 +18틱, 1주 금리 급락, 서킷브레이커 충격)을 별도로 분리해 신규 재료만으로 방향을 판단하려 시도"
+    ],
+    "explanation": "고용 서프라이즈·12월 인상 확률 76%·원화 약세 전망 등 하락 요인 대부분은 유진 리포트의 해석 문장을 거의 그대로 가져왔고, 상승 요인도 유진의 국내 동향 서술 요약에 가깝다. 다만 리포트에 없는 '되돌림' 관점과 미국 증시-국내 안전자산 선호 대조는 AI 고유의 연결로, 전적인 추종은 아니다."
+  },
+  "scores": {
+    "evidence_fidelity": 5,
+    "invalidation_quality": 4,
+    "reasoning_quality": 3
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Judgment 1단계 (정답을 가린 채점: 근거 수치·추론·무효화 조건 형식)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_checks",
+    "invalidation_observability",
+    "reasoning_review",
+    "analyst_dependence",
+    "scores"
+  ],
+  "properties": {
+    "evidence_checks": {
+      "type": "array",
+      "description": "예측 근거(up/down_drivers)의 evidence 수치·문장을 원문과 대조",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "side",
+          "factor",
+          "claimed",
+          "verdict",
+          "source_value",
+          "note"
+        ],
+        "properties": {
+          "side": {
+            "enum": [
+              "up",
+              "down"
+            ]
+          },
+          "factor": {
+            "type": "string"
+          },
+          "claimed": {
+            "type": "string",
+            "description": "예측이 인용한 수치·문장"
+          },
+          "verdict": {
+            "enum": [
+              "correct",
+              "misread",
+              "unsupported",
+              "not_checkable"
+            ],
+            "description": "correct=원문과 일치, misread=원문에 있으나 다른 값/행을 읽음, unsupported=원문에 없음, not_checkable=수치 없는 해석"
+          },
+          "source_value": {
+            "type": "string",
+            "description": "원문의 실제 값과 위치(리포트·표·행). 해당 없으면 빈 문자열"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "invalidation_observability": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "condition",
+          "observable",
+          "reason"
+        ],
+        "properties": {
+          "condition": {
+            "type": "string"
+          },
+          "observable": {
+            "type": "boolean",
+            "description": "기록되는 값(국채선물·KOSPI200·원달러 종가, 국채선물 시가)만으로 사후 판정 가능한가"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reasoning_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "magnitude_compared",
+        "probability_consistent",
+        "issues",
+        "explanation"
+      ],
+      "properties": {
+        "magnitude_compared": {
+          "type": "boolean",
+          "description": "상승·하락 요인의 크기를 비교해 결론을 냈는가"
+        },
+        "probability_consistent": {
+          "type": "boolean",
+          "description": "확률·예상 틱·확신도가 근거와 서로 맞는가"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "explanation": {
+          "type": "string"
+        }
+      }
+    },
+    "analyst_dependence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "independent_insights",
+        "explanation"
+      ],
+      "properties": {
+        "level": {
+          "enum": [
+            "low",
+            "mid",
+            "high"
+          ],
+          "description": "결론이 리포트의 해석·전망 문장을 얼마나 그대로 따랐는가"
+        },
+        "independent_insights": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "리포트에 없는 AI 고유의 연결·판단"
+        },
+        "explanation": {
+          "type": "string"
+        }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_fidelity",
+        "invalidation_quality",
+        "reasoning_quality"
+      ],
+      "properties": {
+        "evidence_fidelity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "invalidation_quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "reasoning_quality": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "예측 시점 정보만으로 본 추론의 타당성 (결과 모름)"
+        }
+      }
+    }
+  }
+}

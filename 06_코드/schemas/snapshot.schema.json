@@ -47,7 +47,7 @@
       "properties": {
         "prev_close": {
           "type": "number",
-          "description": "D-1 종가"
+          "description": "D-1 정규장 종가 (KRX 공식)"
         },
         "value_at_t": {
           "type": "number",
@@ -56,6 +56,10 @@
         "prev_change": {
           "type": "number",
           "description": "A 트랙: D-1 종가 - D-2 종가 (가격 단위)"
+        },
+        "night_close": {
+          "type": "number",
+          "description": "A 트랙 선택: 국채선물 야간거래 종가 (예측 입력 정보, 평가 기준은 정규장 종가)"
         }
       }
     }
@@ -153,6 +157,10 @@
               "description": "직전 미국 세션 1일 변화(bp)"
             }
           }
+        },
+        "source": {
+          "type": "string",
+          "description": "미국 값 출처와 확인 시각 (예: investing.com 07:50 확인)"
         }
       }
     },

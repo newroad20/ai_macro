@@ -13,10 +13,26 @@
       "neutral_band_ticks": 16,
       "dryrun_neutral_band_ticks": 16,
       "neutral_band_note": "2026-11-09 확정. KRX 10년 국채선물 지수(1301) 2025-11-07~2026-11-09, 244일 일간 변동을 틱으로 환산: |변동| 평균 38.3, 중앙값 32.0 -> 사전 규칙(중앙값의 절반) 16틱, 중립 비율 약 21%. 원자료 02_시장데이터/과거/KTB10Y선물지수_일별_KRX1301_20261109.csv",
-      "prompt_file": "prompts/predictor_A_v1.0.md",
-      "judge_prompt_file": "prompts/judge_A_v1.0.md",
+      "prompt_file": "prompts/predictor_A_v1.1.md",
       "ust_baseline_min_bp": 2.0,
-      "ust_baseline_note": "기준선 us_rates: 간밤 미국채 10Y 변화가 -2bp 이하면 up, +2bp 이상이면 down, 그 사이는 neutral"
+      "ust_baseline_note": "기준선 us_rates: 간밤 미국채 10Y 변화가 -2bp 이하면 up, +2bp 이상이면 down, 그 사이는 neutral",
+      "judge_mode": "two_stage",
+      "judge_prompt_files": {
+        "blind": "prompts/judge_A_blind_v2.0.md",
+        "outcome": "prompts/judge_A_outcome_v2.0.md"
+      },
+      "scoring_rule": "주 지표(사전 고정): 10년 국채선물 단일 타깃. ① 신호당 평균 획득 틱 = AI 비중립 예측 전체(실제 중립일 포함)의 부호×실제 변동 평균 ② 방향 적중률 = AI 비중립 예측 중 실제 변동이 중립 구간(±16틱) 밖인 날만 대상(실제 중립일은 적중률에서 제외). AI 중립 예측은 신호 없음(획득 0). 보조 타깃(3Y·KOSPI200·USD/KRW)과 시가->종가 분석은 기술 통계로만 보고, 성과 결론에 쓰지 않음.",
+      "reference_price": "KRX 정규장(15:45) 공식 종가. 야간거래 종가·정산가는 기준으로 쓰지 않음(야간 종가는 선택 입력 정보)",
+      "contract_roll": {
+        "rule": "최근월물 만기일(3·6·9·12월 셋째 화요일)이 속한 주의 직전 주 월요일부터 차근월물 사용. 교체일에는 새 월물의 전일 종가를 --prev-f3/--prev-f10 으로 입력",
+        "current": "2612",
+        "next": "2703",
+        "next_roll_date": "2026-12-07",
+        "expiry_estimate": "2026-12-15",
+        "verified": false,
+        "note": "만기일은 셋째 화요일로 계산한 추정값. KRX에서 확인 필요"
+      },
+      "missing_rule": "한국 휴장일은 건너뛰고 D-1=직전 국내 거래일. 미국 휴장 다음 날은 --us-date 로 직전 미국 세션 지정. 두 리포트 중 하나라도 08:45 전에 확보하지 못하면 그날은 정식 표본 제외(시험 실행만 가능)"
     },
     "B": {
       "status": "paused",
@@ -55,8 +71,19 @@
   },
   "primary_metric": "ktb10y_fut 비중립 예측의 방향 적중률 및 신호당 평균 획득 틱 (기준선 대비)",
   "pending": [
-    "A: 월물 교체 기준일",
-    "close_definition 확정 (종가 시각·출처 고정)",
-    "runner.model 확정 (첫 정식 실행 전 고정, 이후 변경 시 새 버전)"
-  ]
+    "close_definition 확정 (종가 출처 고정)",
+    "12월물 만기일 KRX 확인 (contract_roll.verified)",
+    "국채선물 야간거래 시행 여부와 야간 종가 확인 경로"
+  ],
+  "v0_freeze": {
+    "from": "2026-11-10",
+    "model": "claude-sonnet-5-5",
+    "prompt_version": "A_v1.1",
+    "judge_model": "claude-opus-5",
+    "judge_prompt_versions": [
+      "A_blind_v2.0",
+      "A_outcome_v2.0"
+    ],
+    "note": "점검 기간(약 20거래일) 중 모델·프롬프트 변경 금지. 바꾸면 새 버전으로 기간을 새로 시작"
+  }
 }

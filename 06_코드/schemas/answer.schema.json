@@ -50,7 +50,8 @@
         "usdkrw": {
           "type": "number"
         }
-      }
+      },
+      "description": "정규장 종가 (KRX 공식, 야간·정산가 아님)"
     },
     "source": {
       "type": "string",
@@ -63,6 +64,19 @@
       "type": "string",
       "pattern": "^\\d{4}$",
       "description": "국채선물 월물 YYMM"
+    },
+    "open": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "선택: 국채선물 정규장 시가 (시가 갭·시가->종가 분석용)",
+      "properties": {
+        "ktb3y_fut": {
+          "type": "number"
+        },
+        "ktb10y_fut": {
+          "type": "number"
+        }
+      }
     }
   }
 }

@@ -1,0 +1,53 @@
+{
+  "schema_version": "0.1",
+  "track": "A",
+  "trade_date": "2026-11-09",
+  "scheduled_at": "2026-11-09T08:30:00+09:00",
+  "captured_at": "2026-11-09T14:57:54+09:00",
+  "reports": [
+    {
+      "source": "daol",
+      "file": "다올투자증권_채권시황_DAOL Daily Bond Morning Brief_20261109.pdf",
+      "pdf_created_at": "2026-11-09T08:01:31+09:00",
+      "obtained_at": "2026-11-09T09:25:00+09:00"
+    },
+    {
+      "source": "eugene",
+      "file": "유진투자증권_채권전략_Eugenes FICC Update_20261109.pdf",
+      "pdf_created_at": "2026-11-09T08:56:15+09:00",
+      "obtained_at": "2026-11-09T09:24:00+09:00"
+    }
+  ],
+  "us_close": {
+    "as_of_date": "2026-11-06",
+    "sp500": {
+      "change_pct": 0.31
+    },
+    "nasdaq": {
+      "change_pct": 1.09
+    },
+    "source": "미국 지수: 사용자 제공(11/06 종가), 미국채: 다올 11/09 리포트",
+    "ust10y": {
+      "change_bp": 2.3,
+      "yield": 4.86
+    }
+  },
+  "kr": {
+    "ktb3y_fut": {
+      "prev_close": 103.85,
+      "prev_change": 0.16
+    },
+    "ktb10y_fut": {
+      "prev_close": 109.37,
+      "prev_change": 0.18
+    },
+    "kospi200": {
+      "prev_close": 783.23
+    },
+    "usdkrw": {
+      "prev_close": 1356.6
+    }
+  },
+  "ktb_contract": "2612",
+  "note": "시험(공유용 예시). 전일(11/06) 종가는 사용자 제공. 리포트 입수가 컷오프 이후라 정식이었다면 late."
+}

@@ -1,0 +1,95 @@
+{
+  "schema_version": "0.2",
+  "track": "A",
+  "trade_date": "2026-11-06",
+  "stage": "blind",
+  "variant": "main",
+  "judge_prompt_version": "A_blind_v2.0",
+  "judge_model_id": "claude-opus-5",
+  "judged_at": "2026-11-09T14:34:10+09:00",
+  "prediction_executed_at": "2026-11-09T14:33:28+09:00",
+  "cost_usd": 0.4486545,
+  "answer_existed_at_judging": true,
+  "answer_shown": false,
+  "evidence_checks": [
+    {
+      "side": "up",
+      "factor": "미국 기술주 급락 및 안전자산 선호, 미국채 금리 하락",
+      "claimed": "S&P500 -4.36%, Nasdaq -5.52%, UST10Y -5.2bp(4.837%), UST2Y -11.9bp",
+      "verdict": "correct",
+      "source_value": "snapshot.us_close: sp500 -4.36%, nasdaq -5.52%, ust10y -5.2bp/4.837%. 다올 US Bond Market: UST10Y 4.837 1D -5.2, UST2Y 4.463 1D -11.9. 유진 Fixed Income 표 동일",
+      "note": "지수 등락률은 snapshot 주석상 '웹 보도(미확인)'이며 AI도 이를 명시. 채권 수치는 두 리포트와 일치."
+    },
+    {
+      "side": "up",
+      "factor": "12월 FOMC 동결 기대 확대로 단기금리 하락",
+      "claimed": "유진: 관련해 12월 FOMC 동결 가능성 확대되면서 단기금리 하락폭 두드러짐",
+      "verdict": "correct",
+      "source_value": "유진 1p '전망 및 향후 주요 이벤트' 마지막 불릿 문장 그대로",
+      "note": "미국 단기금리(UST2Y -11.9bp) 관련 서술로, 국내 10년 선물 상방 근거로는 간접적."
+    },
+    {
+      "side": "up",
+      "factor": "위험회피 지속 시 채권 반사이익",
+      "claimed": "유진: 국내 증시 매도 사이드카 발동, 안전자산 선호로 채권 반사효과; 원/달러 야간 1,355.50(+13.4원)",
+      "verdict": "correct",
+      "source_value": "유진 1p '국내 채권시장 동향': '매도 사이드카 발동…안전자산 선호로 채권 반사효과'. 유진 2p: '1,342.10원 마감(야간 1,355.50원)', '야간거래에서 +13.40원 상승'",
+      "note": "두 수치 모두 원문 일치."
+    },
+    {
+      "side": "down",
+      "factor": "전일 10년 선물 급등 후 되돌림 가능성",
+      "claimed": "snapshot 10년 선물 prev_change +0.69(69틱), 다올 1W +115틱",
+      "verdict": "correct",
+      "source_value": "snapshot kr.ktb10y_fut prev_change 0.69. 다올 'KTB Futures(tick)' 표 LKTBF 10Y: 1D 69.0, 1W 115.0",
+      "note": "행·열 일치. 다만 유진 표는 10년 선물 1W를 174.0틱으로 기재해 두 리포트가 상충하는데 AI는 언급하지 않음."
+    },
+    {
+      "side": "down",
+      "factor": "미국 고용 견조 및 유가 반등, 미국 10Y 하락폭은 제한적",
+      "claimed": "유진: 신규 실업수당 청구 18.9만건 57년만의 최저; WTI +3.5%; 미국 10Y -5.2bp에 그침",
+      "verdict": "correct",
+      "source_value": "유진 2p: '신규 실업수당 청구건수는 57년만에 최저치인 18.9만건'. FX&Commodity 표 WTI 근월물 91.20, 1D 3.5%. UST10Y 1D -5.2bp",
+      "note": "WTI는 1D +3.5%이나 1W -10.6%이며, 유진 본문은 '국제유가 하락'을 달러-원 상단 제약 요인으로 서술해 본문 서사와 결이 다름."
+    }
+  ],
+  "invalidation_observability": [
+    {
+      "condition": "10년 국채선물 종가가 전일 종가(109.19) 대비 +17틱 이상 (109.36 이상)",
+      "observable": true,
+      "reason": "10년 국채선물 당일 종가만으로 기계적 판정 가능. 중립 예측의 상단 이탈을 직접 시험."
+    },
+    {
+      "condition": "10년 국채선물 종가가 전일 종가 대비 -17틱 이하 (109.02 이하)",
+      "observable": true,
+      "reason": "종가만으로 판정 가능. 다만 ±17틱 대칭 밴드는 예상 변동 6틱 대비 넓은 느슨한 기준이고, secondary(3년 선물 +4틱, KOSPI200 -1%, 환율 +8원)를 시험하는 조건은 없음."
+    }
+  ],
+  "reasoning_review": {
+    "magnitude_compared": true,
+    "probability_consistent": true,
+    "issues": [
+      "already_priced_in의 '국고10Y -7.0bp(다올)'는 다올 표상 국고10Y 1D가 -7.5bp이고, -7.0bp는 IRS 10Y(3.695) 행의 값이다. 행 혼동으로 핵심 선반영 논거의 수치가 부정확(유진 -8.1bp 병기로 결론은 유지).",
+      "다올(국고10Y -7.5bp) vs 유진(-8.1bp), 10년 선물 1W 틱(다올 115 vs 유진 174)의 리포트 간 불일치를 조정 없이 각각 인용.",
+      "국채선물 야간 종가가 snapshot에 없음을 명시하지 않은 채 '선반영'을 판단(원달러 야간만 참조)하여, 간밤 미국 금리 하락의 선물 반영 여부 확인이 불완전.",
+      "primary가 neutral인데 expected_ticks 6의 방향이 불명확하고, secondary에서 3년 선물 up +4틱을 제시해 중립 결론과 비대칭이 있으나 커브(불스티프닝/플래트닝) 논리로 설명하지 않음.",
+      "KOSPI200 -1%, 원달러 +8원은 간밤 나스닥 -5.52%·야간 환율 +13.4원 대비 보수적인데 그 완화 근거를 명시하지 않음."
+    ],
+    "explanation": "간밤 미국 금리 하락(-5.2bp)이 D-1 국내 강세(국고10Y -7~-8bp, 10년 선물 +69틱)에 이미 반영됐다는 선반영 점검을 명시적으로 수행했고, 추가 강세 요인(위험회피 지속·FOMC 동결 기대)과 되돌림 요인(1일 69틱 급등, 견조한 고용, 당일 미 고용보고서)의 크기를 비교해 중립·저확신으로 귀결시킨 것은 일관적이다. 확률분포(0.3/0.5/0.2), low confidence, 넓은 무효화 밴드도 서로 모순되지 않는다. 수치 행 혼동·리포트 간 불일치 미조정·야간 선물 정보 공백 처리 미흡이 감점 요인."
+  },
+  "analyst_dependence": {
+    "level": "mid",
+    "independent_insights": [
+      "간밤 미국채 10Y -5.2bp와 D-1 국내 국고10Y -7~-8bp를 대조해 '국내가 미국보다 더 강세였으므로 선반영'이라는 판단을 도출(두 리포트 모두 이 비교를 하지 않음).",
+      "다올 선물 틱 표(1D 69틱, 1W 115틱)를 '과매수 후 되돌림 리스크'라는 하락 요인으로 재해석 — 리포트는 단순 기록만 제시.",
+      "유진 FX 섹션(견조한 고용지표, WTI +3.5%, 당일 미 10월 고용보고서)을 채권 금리 상승 요인으로 전용한 크로스 섹션 연결.",
+      "원달러 야간 1,355.50(+13.4원)을 위험회피 지속 프록시로 삼아 채권 상방 근거와 환율 전망에 동시 활용."
+    ],
+    "explanation": "상승 요인 서사(안전자산 선호, 채권 반사효과, 12월 FOMC 동결 기대)는 유진 문장을 거의 그대로 차용했다. 다만 두 리포트 모두 '중립·되돌림' 결론을 내지 않았고(유진은 강세 마감·안전자산 선호 지속 기조), AI는 선물 급등폭과 한미 금리 변화 비교라는 자체 논거로 중립에 도달했다. 인용 의존은 크지만 결론은 리포트 톤을 그대로 따르지 않았다."
+  },
+  "scores": {
+    "evidence_fidelity": 4,
+    "invalidation_quality": 4,
+    "reasoning_quality": 4
+  }
+}

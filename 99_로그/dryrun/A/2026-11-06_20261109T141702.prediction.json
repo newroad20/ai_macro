@@ -1,0 +1,92 @@
+{
+  "schema_version": "0.1",
+  "track": "A",
+  "trade_date": "2026-11-06",
+  "prompt_version": "A_v1.0",
+  "model_id": "claude-sonnet-5-5",
+  "executed_at": "2026-11-09T14:17:02+09:00",
+  "input_manifest_sha256": "387c64487cada79f3593a32e9515f724157e4d4f3026e1e17c1858f5130e7fd0",
+  "primary": {
+    "instrument": "ktb10y_fut",
+    "direction": "up",
+    "prob": {
+      "up": 0.46,
+      "neutral": 0.4,
+      "down": 0.14
+    },
+    "expected_ticks": 18,
+    "confidence": "low",
+    "duration_view": "long"
+  },
+  "secondary": {
+    "ktb3y_fut": {
+      "direction": "up",
+      "expected_ticks": 6
+    },
+    "kospi200": {
+      "direction": "down",
+      "expected_return_pct": -3
+    },
+    "usdkrw": {
+      "direction": "up",
+      "expected_change_krw": 10
+    }
+  },
+  "rationale": {
+    "up_drivers": [
+      {
+        "factor": "미국 금리 하락·위험회피 (국내 마감 이후 발생)",
+        "evidence": "UST10Y 4.837% (-5.2bp), UST2Y -11.9bp, S&P500 -4.36%, Nasdaq -5.52%",
+        "source": "us_market"
+      },
+      {
+        "factor": "12월 FOMC 동결 기대 확대",
+        "evidence": "유진: 12월 FOMC 동결 가능성 확대되면서 단기금리 하락폭 두드러짐",
+        "source": "eugene"
+      },
+      {
+        "factor": "AI 규제 불안에 따른 증시 급락 지속 가능성 (안전자산 선호)",
+        "evidence": "유진: 필라델피아 반도체지수 장중 12% 급락, 국내 매도 사이드카 발동; 다올: KOSPI 1D -5.28%",
+        "source": "eugene"
+      },
+      {
+        "factor": "유가 하락·미-이란 갈등 완화 기대",
+        "evidence": "유진: 중간선거 이후 국제유가 하락, 종전 기대 (WTI 11/5 기준 1D +3.5%로 수치는 엇갈림)",
+        "source": "eugene"
+      }
+    ],
+    "down_drivers": [
+      {
+        "factor": "D-1에 이미 큰 폭 강세 → 되돌림/차익실현 위험",
+        "evidence": "snapshot ktb10y_fut prev_change +0.69 (69틱), 다올 국고10Y 3.875% 1D -7.5bp, 1W -19.5bp",
+        "source": "snapshot"
+      },
+      {
+        "factor": "당일 미국 10월 고용보고서 발표, 안정적 고용 시사 시 금리 반등 여지",
+        "evidence": "유진: 美 신규 실업수당 청구 18.9만건(57년래 최저), 고용보고서 안정적 시사 가능성",
+        "source": "eugene"
+      },
+      {
+        "factor": "원화 약세(야간 환율 급등)와 외국인 자금 이탈",
+        "evidence": "유진: 달러-원 야간 1,355.50원(+13.40원), 외국인 코스피 -3.4조원",
+        "source": "eugene"
+      }
+    ],
+    "already_priced_in": [
+      "국내 D-1 채권 강세(10년 선물 +69틱, 국고10Y -7.5bp 다올 기준 / 유진 -8.1bp)",
+      "KOSPI -5.28% 급락과 안전자산 선호의 1차 반영",
+      "FOMC 동결 기대 일부"
+    ],
+    "invalidation_conditions": [
+      "10년 국채선물이 전일 종가(109.19) 대비 -16틱 이하(108.99 이하)로 마감",
+      "10년 국채선물이 전일 종가 대비 +16틱 이내(109.35 이하)에서 마감하면 neutral로 빗나감",
+      "미국 10월 고용지표 호조로 UST10Y가 당일 +8bp 이상 상승"
+    ],
+    "low_confidence_reasons": [
+      "미국 금리 전이 추정치(약 +15~20틱)가 neutral 경계(16틱)에 가까움",
+      "D-1에 이미 69틱 상승해 되돌림 가능성 존재",
+      "극단적 변동성 구간(주가 -5%대)이라 방향 분산이 큼",
+      "snapshot 미국 지수 등락률은 미확인 수치로 note에 명시됨"
+    ]
+  }
+}

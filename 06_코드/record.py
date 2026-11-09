@@ -5,7 +5,10 @@ A 트랙 (주 트랙: 개장 전 실행, 전일 종가 -> 당일 종가)
   # 거래일 D 아침 08:45 전 — 미국 값 3개 (국내 전일 종가는 직전 정답 파일에서 자동)
   python record.py snapshot 2026-11-10 --spx 0.31 --ndx 1.09 --ust10y -5.2
   # D 장 마감 후 — 종가 4개 (이 파일이 다음 거래일의 전일 종가가 된다)
-  python record.py answer 2026-11-10 --f3 103.90 --f10 109.45 --k200 790.1 --fx 1350.2
+  python record.py answer 2026-11-10 --f3 103.90 --f10 109.45 --k200 790.1 --fx 1350.2 [--o10 109.30 --o3 103.80]
+
+  기준 가격은 KRX 정규장(15:45) 종가. 야간 종가는 --night-f10/--night-f3 (선택, 입력 정보로만 사용).
+  미국 값 출처·확인 시각은 --us-source 로 남긴다.
 
   첫날처럼 직전 정답 파일이 없으면 --prev-f3/--prev-f10/--prev-k200/--prev-fx 로 전일 종가를,
   --prev-ticks10/--prev-ticks3 으로 전일 국채선물 변동(틱)을 준다(전일 지속·반전 기준선용, 선택).
@@ -119,6 +122,8 @@ def us_block(args):
             fail(f"{n} 등락률 {v}% 는 비정상 범위. 오입력이면 수정, 맞으면 --force.")
     us = {"as_of_date": args.us_date or previous_weekday(args.date),
           "sp500": {"change_pct": args.spx}, "nasdaq": {"change_pct": args.ndx}}
+    if args.us_source:
+        us["source"] = args.us_source
     if args.ust10y is not None:
         if abs(args.ust10y) > MAX_UST_BP and not args.force:
             fail(f"미국채 10Y 변화 {args.ust10y}bp 는 비정상 범위. 오입력이면 수정, 맞으면 --force.")
@@ -169,6 +174,15 @@ def snapshot(args):
         if args.track == "B":
             check_move(name, getattr(args, k), p, args.force)
             kr[name]["value_at_t"] = getattr(args, k)
+    if args.track == "A":
+        for name, val in (("ktb10y_fut", args.night_f10), ("ktb3y_fut", args.night_f3)):
+            if val is not None:
+                check_move(name, val, kr[name]["prev_close"], args.force)
+                kr[name]["night_close"] = val
+        roll = tcfg.get("contract_roll", {})
+        if roll.get("next_roll_date") and args.date >= roll["next_roll_date"] and args.contract != roll.get("next"):
+            print(f"[주의] 월물 교체일({roll['next_roll_date']}) 이후. 규칙상 {roll.get('next')}물을 써야 함: "
+                  f"--contract {roll.get('next')} 와 새 월물의 --prev-f3/--prev-f10 을 주세요.")
     if args.track == "A":  # 전일 변동 (전일 지속·반전 기준선용)
         for name, targ in TICK_ARGS.items():
             ticks = getattr(args, targ)
@@ -217,6 +231,9 @@ def answer(args):
             check_move(name, getattr(args, k), kr[name]["prev_close"], args.force)
     ans = {"schema_version": "0.1", "track": args.track, "trade_date": args.date, "recorded_at": kst_str(now),
            "close": {name: getattr(args, k) for k, name in INSTR.items()}}
+    opens = {name: v for name, v in (("ktb3y_fut", args.o3), ("ktb10y_fut", args.o10)) if v is not None}
+    if opens:
+        ans["open"] = opens
     if args.contract:
         ans["ktb_contract"] = args.contract
     if args.source:
@@ -237,6 +254,11 @@ def main():
         ap.add_argument(f"--prev-{k}", type=float, help=f"{label} 전일 종가 직접 입력")
     ap.add_argument("--prev-ticks10", type=float, help="A: 10년 국채선물 전일 변동(틱) 직접 입력")
     ap.add_argument("--prev-ticks3", type=float, help="A: 3년 국채선물 전일 변동(틱) 직접 입력")
+    ap.add_argument("--night-f10", type=float, help="A 선택: 10년 국채선물 야간 종가 (입력 정보, 평가 기준 아님)")
+    ap.add_argument("--night-f3", type=float, help="A 선택: 3년 국채선물 야간 종가")
+    ap.add_argument("--o10", type=float, help="answer 선택: 10년 국채선물 정규장 시가 (시가 갭 분석)")
+    ap.add_argument("--o3", type=float, help="answer 선택: 3년 국채선물 정규장 시가")
+    ap.add_argument("--us-source", help="미국 값 출처와 확인 시각 (예: 'investing.com 07:50')")
     ap.add_argument("--spx", type=float, help="S&P500 직전 미국 세션 등락률(%%)")
     ap.add_argument("--ndx", type=float, help="Nasdaq 직전 미국 세션 등락률(%%)")
     ap.add_argument("--ust10y", type=float, help="A 필수: 미국채 10Y 직전 세션 변화(bp)")

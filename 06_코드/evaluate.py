@@ -6,9 +6,11 @@
   python evaluate.py --summary                  # 누적 성과 (정시 표본과 late 분리)
   python evaluate.py 2026-11-09 --track B --dry-run
 
-주 지표 (사전 고정, 00_통합기획안 v0.3 §5):
-  10년 국채선물, 비중립 예측의 방향 적중률 + 신호당 평균 획득 틱 — 기준선과 비교.
-보조 타깃(3Y·KOSPI200·USD/KRW)은 기술 통계로만 기록한다.
+주 지표 (사전 고정, 00_통합기획안 v0.3 §5, 설정 scoring_rule):
+  10년 국채선물 단일 타깃.
+  ① 신호당 평균 획득 틱: 비중립 신호 전체(실제 중립일 포함)의 부호 x 실제 변동
+  ② 방향 적중률: 비중립 신호 중 실제 변동이 중립 구간 밖인 날만 (실제 중립일은 적중 판정 없음)
+보조 타깃(3Y·KOSPI200·USD/KRW)과 시가->종가 분석은 기술 통계로만 기록한다.
 
 실제 변동
   A: D 종가 - D-1 종가(스냅샷 prev_close)
@@ -19,6 +21,8 @@
   reversal  : 직전 움직임 반전
   neutral   : 항상 중립 (신호 없음)
   us_rates  : A만. 간밤 미국채 10Y 변화 방향 추종 (금리 하락 -> up). 임계값은 설정 ust_baseline_min_bp
+  always_up / always_down : 요약(--summary)에서만. 기간 중 항상 한 방향을 찍는 가장 기본 기준선
+              (더 많이 나온 방향 = 사후 다수 방향은 표시만, 사후 정보이므로 AI에게 유리하지 않은 보수적 비교)
   report_*  : 리포트 방향 전망 추종 — 02_시장데이터/리포트방향/<트랙>/<날짜>.json 이 있을 때만
               ({"daol": "up|neutral|down|none", "eugene": "...", "note": "..."}, 장 마감 전 수동 태깅)
 """
@@ -45,10 +49,11 @@ def classify(ticks, band):
 
 
 def score_signal(direction, actual_ticks, actual_dir):
-    """비중립 신호만 적중/획득 틱을 계산한다. 중립은 신호 없음."""
+    """비중립 신호만 획득 틱을 계산한다. 실제가 중립 구간이면 적중 판정 없음(hit=None)."""
     if direction == "neutral":
         return {"direction": direction, "signal": False, "hit": None, "ticks_gained": 0.0}
-    return {"direction": direction, "signal": True, "hit": direction == actual_dir,
+    return {"direction": direction, "signal": True,
+            "hit": None if actual_dir == "neutral" else direction == actual_dir,
             "ticks_gained": round(SIGN[direction] * actual_ticks, 2)}
 
 
@@ -138,6 +143,18 @@ def evaluate_day(track, date, force=False, dry=False):
     else:
         notes.append("리포트 방향 태깅 없음 -> report_* 미계산")
 
+    # 시가 갭 분석 (정답에 10년 선물 시가가 있을 때만, 기술 통계)
+    gap = None
+    o10 = ans.get("open", {}).get("ktb10y_fut")
+    if o10 is not None:
+        gap_t = round((o10 - start("ktb10y_fut")) / tick10, 2)
+        oc_t = round((close["ktb10y_fut"] - o10) / tick10, 2)
+        gap = {"gap_ticks": gap_t, "open_to_close_ticks": oc_t, "open_to_close_direction": classify(oc_t, band),
+               "ai_vs_open_to_close": None if p["direction"] == "neutral" or oc_t == 0
+               else (SIGN[p["direction"]] > 0) == (oc_t > 0)}
+    else:
+        notes.append("시가 없음 -> 시가 갭 분석 생략")
+
     # 보조 타깃: 방향 부호 일치와 오차만 기록
     act3 = round((close["ktb3y_fut"] - start("ktb3y_fut")) / tick3, 2)
     k200_ret = round((close["kospi200"] / start("kospi200") - 1) * 100, 3)
@@ -161,6 +178,7 @@ def evaluate_day(track, date, force=False, dry=False):
             "pred_direction": p["direction"], "pred_ticks": p["expected_ticks"], "confidence": p["confidence"],
             "prob": p["prob"], "tick_error": round(act10 - p["expected_ticks"], 2),
             "prob_of_actual": p["prob"][act10_dir],
+            "open_gap": gap,
         },
         "signals": signals,
         "secondary": {
@@ -179,11 +197,13 @@ def evaluate_day(track, date, force=False, dry=False):
           f"실제 {act10:+} 틱 ({act10_dir}, 중립 ±{band})")
     ai = signals["ai"]
     print(f"  AI: {pr['pred_direction']} {pr['pred_ticks']:+} 틱 ({pr['confidence']}) -> "
-          f"{'신호 없음' if not ai['signal'] else ('적중' if ai['hit'] else '실패')}, "
+          f"{'신호 없음' if not ai['signal'] else ('판정 없음(실제 중립)' if ai['hit'] is None else '적중' if ai['hit'] else '실패')}, "
           f"획득 {ai['ticks_gained']:+} 틱, 실제 방향에 준 확률 {pr['prob_of_actual']}")
     for k, v in signals.items():
         if k != "ai":
             print(f"  기준선 {k:<14} {v['direction']:<8} 획득 {v['ticks_gained']:+} 틱")
+    if gap:
+        print(f"  시가 갭 {gap['gap_ticks']:+} 틱 / 시가->종가 {gap['open_to_close_ticks']:+} 틱 ({gap['open_to_close_direction']})")
     for n in notes:
         print(f"  ※ {n}")
     print(f"[저장] {out.relative_to(ROOT)}")
@@ -192,31 +212,45 @@ def evaluate_day(track, date, force=False, dry=False):
 
 def summary(track):
     d = cm.eval_dir(track)
-    rows = [load_json(p) for p in sorted(d.glob("*.json"))] if d.exists() else []
+    rows = [load_json(p) for p in sorted(d.glob("????-??-??.json"))] if d.exists() else []
     if not rows:
         fail(f"{track} 평가 결과 없음")
     for label, group in (("정시", [r for r in rows if not r["late"]]), ("late", [r for r in rows if r["late"]])):
         if not group:
             continue
         print(f"\n== {track} {label} 표본 {len(group)}일 ({group[0]['trade_date']} ~ {group[-1]['trade_date']}) ==")
-        names = sorted({k for r in group for k in r["signals"]}, key=lambda k: (k != "ai", k))
-        print(f"  {'전략':<16}{'일수':>4}{'신호':>4}{'적중':>6}{'적중률':>8}{'신호당 틱':>10}{'누적 틱':>9}")
-        for n in names:
-            sig = [r["signals"][n] for r in group if n in r["signals"]]
+        table = {n: [r["signals"][n] for r in group if n in r["signals"]]
+                 for n in sorted({k for r in group for k in r["signals"]}, key=lambda k: (k != "ai", k))}
+        for name, dirn in (("always_up", "up"), ("always_down", "down")):
+            table[name] = [score_signal(dirn, r["primary"]["actual_ticks"], r["primary"]["actual_direction"]) for r in group]
+        ups = sum(r["primary"]["actual_direction"] == "up" for r in group)
+        downs = sum(r["primary"]["actual_direction"] == "down" for r in group)
+        print(f"  실제 방향: up {ups} / down {downs} / 중립 {len(group) - ups - downs}  "
+              f"(사후 다수 방향: {'always_up' if ups >= downs else 'always_down'})")
+        print(f"  {'전략':<14}{'일수':>4}{'신호':>4}{'판정':>4}{'적중':>5}{'적중률':>7}{'신호당 틱':>10}{'누적 틱':>9}")
+        for n, sig in table.items():
             fired = [x for x in sig if x["signal"]]
-            hits = sum(1 for x in fired if x["hit"])
+            judged = [x for x in fired if x["hit"] is not None]
+            hits = sum(1 for x in judged if x["hit"])
             total = sum(x["ticks_gained"] for x in sig)
-            rate = f"{hits / len(fired):.0%}" if fired else "-"
+            rate = f"{hits / len(judged):.0%}" if judged else "-"
             per = f"{total / len(fired):+.1f}" if fired else "-"
-            print(f"  {n:<16}{len(sig):>4}{len(fired):>4}{hits:>6}{rate:>8}{per:>10}{total:>+9.1f}")
+            print(f"  {n:<14}{len(sig):>4}{len(fired):>4}{len(judged):>4}{hits:>5}{rate:>7}{per:>10}{total:>+9.1f}")
         by_conf = {}
         for r in group:
-            if r["signals"]["ai"]["signal"]:
-                by_conf.setdefault(r["primary"]["confidence"], []).append(r["signals"]["ai"]["hit"])
+            a = r["signals"]["ai"]
+            if a["signal"] and a["hit"] is not None:
+                by_conf.setdefault(r["primary"]["confidence"], []).append(a["hit"])
         if by_conf:
-            print("  AI 확신도별: " + ", ".join(f"{c} {sum(v)}/{len(v)}" for c, v in sorted(by_conf.items())))
+            print("  AI 확신도별 적중: " + ", ".join(f"{c} {sum(v)}/{len(v)}" for c, v in sorted(by_conf.items())))
+        gaps = [r["primary"]["open_gap"] for r in group if r["primary"].get("open_gap")]
+        oc = [g["ai_vs_open_to_close"] for g in gaps if g["ai_vs_open_to_close"] is not None]
+        if oc:
+            print(f"  (기술 통계) AI 방향 vs 시가->종가 부호 일치 {sum(oc)}/{len(oc)}")
+        print("  ※ 적중률은 실제 변동이 중립 구간 밖인 날만 판정. 신호당 틱은 모든 신호 포함.")
         if len(group) < 30:
-            print(f"  ※ 표본 {len(group)}일 — 시험운영(V0) 단계로 성능 결론을 내지 않음")
+            print(f"  ※ 표본 {len(group)}일 — 시험운영(V0) 단계로 성능 결론을 내지 않음 "
+                  "(20일 중 14일 적중도 동전 던지기로 나올 확률 약 6%)")
 
 
 def main():

@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Judgment 2단계 (정답 공개 후: 적중·무효화 발동·이미 반영 판단·교훈)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invalidation_triggered",
+    "priced_in",
+    "reasoning_outcome",
+    "scores",
+    "lesson"
+  ],
+  "properties": {
+    "invalidation_triggered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "condition",
+          "triggered",
+          "reason"
+        ],
+        "properties": {
+          "condition": {
+            "type": "string"
+          },
+          "triggered": {
+            "enum": [
+              "yes",
+              "no",
+              "unknown"
+            ],
+            "description": "기록된 종가·시가로 판정. 판정 불가면 unknown"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "priced_in": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "score"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim",
+              "verdict",
+              "reason"
+            ],
+            "properties": {
+              "claim": {
+                "type": "string"
+              },
+              "verdict": {
+                "enum": [
+                  "consistent",
+                  "inconsistent",
+                  "undeterminable"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        }
+      }
+    },
+    "reasoning_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "dominant_side_in_hindsight",
+        "explanation"
+      ],
+      "properties": {
+        "category": {
+          "enum": [
+            "right_for_right_reasons",
+            "right_for_wrong_reasons",
+            "wrong_but_reasonable",
+            "wrong_and_flawed",
+            "neutral_call"
+          ]
+        },
+        "dominant_side_in_hindsight": {
+          "enum": [
+            "up_drivers",
+            "down_drivers",
+            "mixed",
+            "undeterminable"
+          ]
+        },
+        "explanation": {
+          "type": "string"
+        }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall"
+      ],
+      "properties": {
+        "overall": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "1단계 점수와 결과를 종합. 방향 적중만으로 정하지 않음"
+        }
+      }
+    },
+    "lesson": {
+      "type": "string",
+      "description": "다음 프롬프트·요인 개선에 쓸 교훈 한두 문장 (특정 날짜의 정답을 암기시키는 내용 금지)"
+    }
+  }
+}

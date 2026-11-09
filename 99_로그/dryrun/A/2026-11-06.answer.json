@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1",
+  "track": "A",
+  "trade_date": "2026-11-06",
+  "recorded_at": "2026-11-09T14:34:08+09:00",
+  "close": {
+    "ktb3y_fut": 103.85,
+    "ktb10y_fut": 109.37,
+    "kospi200": 783.23,
+    "usdkrw": 1356.6
+  },
+  "ktb_contract": "2612",
+  "source": "사용자 제공 11/06 종가"
+}

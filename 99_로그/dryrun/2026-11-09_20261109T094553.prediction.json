@@ -1,0 +1,87 @@
+{
+  "schema_version": "0.1",
+  "track": "B",
+  "trade_date": "2026-11-09",
+  "prompt_version": "v1.0",
+  "model_id": "claude-sonnet-5-5",
+  "executed_at": "2026-11-09T09:45:53+09:00",
+  "input_manifest_sha256": "65b4664545ddcaa2834159429ad1eefdd0b61e3f65624586082ed68a194c319e",
+  "primary": {
+    "instrument": "ktb10y_fut",
+    "direction": "down",
+    "prob": {
+      "up": 0.23,
+      "neutral": 0.35,
+      "down": 0.42
+    },
+    "expected_ticks": -4,
+    "confidence": "low",
+    "duration_view": "short"
+  },
+  "secondary": {
+    "ktb3y_fut": {
+      "direction": "neutral",
+      "expected_ticks": -1
+    },
+    "kospi200": {
+      "direction": "up",
+      "expected_return_pct": 1
+    },
+    "usdkrw": {
+      "direction": "up",
+      "expected_change_krw": 3
+    }
+  },
+  "rationale": {
+    "up_drivers": [
+      {
+        "factor": "증시 급락에 따른 안전자산 선호 지속 가능성",
+        "evidence": "KOSPI -6.02%, KOSDAQ -5.03%, 코스피 서킷브레이커·매도 사이드카 발동, 외국인 3년 국채선물 순매수 지속 (유진 11/6 기준)",
+        "source": "eugene"
+      },
+      {
+        "factor": "AI 불안 재확산 시 추가 위험회피",
+        "evidence": "MS가 오라클과 AI 컴퓨팅 임대 계약을 단계적으로 종료한다는 보도에 미 금리 잠시 하락 전환",
+        "source": "eugene"
+      }
+    ],
+    "down_drivers": [
+      {
+        "factor": "미 고용 호조와 12월 FOMC 인상 기대로 미 금리 상승",
+        "evidence": "비농업 16.5만명 vs 예상 6.5만명, UST10Y 4.860%(+2.3bp), UST2Y 4.514%(+5.1bp), 12월 인상 확률 76%",
+        "source": "eugene"
+      },
+      {
+        "factor": "미 증시 반등으로 위험선호 회복 시 안전자산 되돌림",
+        "evidence": "S&P500 +0.31%, 나스닥 +1.09% (11/6 미국 세션)",
+        "source": "us_market"
+      },
+      {
+        "factor": "전일 과도한 채권 랠리의 되돌림 여지",
+        "evidence": "10년 국채선물 전일 +18틱, 1주 +133틱 (유진); 국고10Y 3.853%(-3.4bp 1D, -15.5bp 1W, 유진)",
+        "source": "eugene"
+      },
+      {
+        "factor": "원화 약세·달러 강세",
+        "evidence": "원/달러 1,356.60(+14.5원, 야간 1,363.00), DXY +0.7%",
+        "source": "eugene"
+      }
+    ],
+    "already_priced_in": [
+      "증시 급락과 안전자산 선호: 10년 선물 전일 +18틱으로 이미 종가에 반영",
+      "미 고용 서프라이즈: 미 금리 상승은 11/6 마감 수치에 반영됨",
+      "snapshot의 value_at_t가 모든 국내 항목에서 prev_close와 동일해 오전 움직임 정보가 없음. T 이전 반영분을 판단할 수 없음"
+    ],
+    "invalidation_conditions": [
+      "10년 국채선물이 109.37 대비 +3틱 이상 상승한 채 유지(109.40 이상)",
+      "KOSPI200이 783.23 대비 추가 하락하거나 서킷브레이커가 재발동",
+      "외국인이 10년 국채선물을 대규모 순매수로 전환"
+    ],
+    "low_confidence_reasons": [
+      "snapshot의 T 시점 값이 전일 종가와 동일해 오전 시장 반응을 확인할 수 없음",
+      "안전자산 선호 지속(상승)과 미 금리 상승·위험선호 회복(하락)이 상충함",
+      "주가 급락 변동성이 극단적이라 틱 변동 분산이 큼",
+      "두 리포트 국고채 수치는 다름: 다올 국고3Y 3.615%·10Y 3.855%, 유진 국고3Y 3.613%·10Y 3.853%. 선물 가격과 전일 종가는 snapshot을 기준으로 함"
+    ]
+  }
+}
