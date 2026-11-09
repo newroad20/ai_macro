@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""근거 채점 Agent (B 트랙). 수치 평가(evaluate.py) 이후에 실행한다.
+"""근거 채점 Agent. 수치 평가(evaluate.py) 이후에 실행한다. 기본 트랙 A.
 
-  python judge_rationale.py 2026-11-09             # 정식 -> 05_평가결과/B/rationale/<날짜>.json
-  python judge_rationale.py 2026-11-09 --dry-run   # 시험 -> 05_평가결과/B/dryrun/<날짜>.rationale.json
+  python judge_rationale.py 2026-11-10             # 정식 -> 05_평가결과/A/rationale/<날짜>.json
+  python judge_rationale.py 2026-11-06 --dry-run   # 시험 -> 05_평가결과/A/dryrun/<날짜>.rationale.json
+  python judge_rationale.py 2026-11-09 --track B --dry-run
 
 예측 세션과 같은 격리 방식(--safe-mode, Read 도구만, 프로젝트 밖 임시 폴더)으로 별도 세션을 띄운다.
 이 세션만 정답을 본다. 예측 파일은 읽기만 하고 수정하지 않는다.
@@ -18,13 +19,14 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+import common as cm
 import evaluate as ev
 import run_prediction as rp
 
-ROOT, CODE, TRACK = rp.ROOT, rp.CODE, rp.TRACK
+ROOT, CODE = cm.ROOT, cm.CODE
 META = ["schema_version", "track", "trade_date", "judge_prompt_version", "judge_model_id", "judged_at",
         "prediction_executed_at"]
-DEFAULT_JUDGE = {"model": "claude-opus-5", "prompt_file": "prompts/judge_v1.0.md", "timeout_seconds": 900}
+DEFAULT_JUDGE = {"model": "claude-opus-5", "timeout_seconds": 900}
 
 
 def judge_output_schema():
@@ -36,18 +38,11 @@ def judge_output_schema():
     return s
 
 
-def inputs(date, dry):
+def inputs(track, date, dry):
     """(예측, 스냅샷 경로, 정답 경로, 수치평가 경로, PDF 폴더, 출력 경로)"""
     pdf_dir = ROOT / "01_리서치_원본" / date
-    if dry:
-        pred, _, snap_p, ans_p, num_p = ev.dryrun_paths(date)
-        out = ROOT / "05_평가결과" / TRACK / "dryrun" / f"{date}.rationale.json"
-    else:
-        pred, _ = ev.find_prediction(date)
-        snap_p = ROOT / "02_시장데이터" / "스냅샷" / TRACK / f"{date}.json"
-        ans_p = ROOT / "02_시장데이터" / "정답" / TRACK / f"{date}.json"
-        num_p = ROOT / "05_평가결과" / TRACK / f"{date}.json"
-        out = ROOT / "05_평가결과" / TRACK / "rationale" / f"{date}.json"
+    pred, _, snap_p, ans_p, num_p = (ev.dryrun_paths if dry else ev.official_paths)(track, date)
+    out = cm.eval_dir(track) / ("dryrun" if dry else "rationale") / (f"{date}.rationale.json" if dry else f"{date}.json")
     for p in (snap_p, ans_p, num_p):
         if not Path(p).exists():
             rp.fail(f"파일 없음: {p}  (정답 기록과 evaluate.py 실행이 먼저 필요)")
@@ -64,13 +59,15 @@ def evidence_stats(checks):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("date")
+    ap.add_argument("--track", choices=cm.TRACKS, default=cm.config().get("default_track", "A"))
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="기존 채점 결과 덮어쓰기")
     args = ap.parse_args()
 
-    cfg = rp.load_json(CODE / "experiment_config.json")
-    jcfg = {**DEFAULT_JUDGE, **cfg.get("judge", {})}
-    pred, snap_p, ans_p, num_p, pdf_dir, out = inputs(args.date, args.dry_run)
+    track = args.track
+    cfg = cm.config()
+    jcfg = {**DEFAULT_JUDGE, **cfg.get("judge", {}), "prompt_file": cm.track_cfg(cfg, track)["judge_prompt_file"]}
+    pred, snap_p, ans_p, num_p, pdf_dir, out = inputs(track, args.date, args.dry_run)
     if out.exists() and not args.force:
         rp.fail(f"이미 채점 결과가 있음: {out} (재채점은 --force)")
     snap = rp.load_json(snap_p)
@@ -96,7 +93,7 @@ def main():
                "--json-schema", json.dumps(judge_output_schema())]
         user = ("작업 폴더의 prediction.json, snapshot.json, report_daol.pdf, report_eugene.pdf, answer.json, "
                 "numeric_eval.json을 읽고 지침에 따라 채점 결과를 JSON으로 출력하세요.")
-        print(f"[채점] model={jcfg['model']} prompt={prompt_version} date={args.date}{' (dry-run)' if args.dry_run else ''}")
+        print(f"[채점] track={track} model={jcfg['model']} prompt={prompt_version} date={args.date}{' (dry-run)' if args.dry_run else ''}")
         try:
             proc = subprocess.run(cmd, input=user, cwd=work, capture_output=True, text=True,
                                   encoding="utf-8", timeout=jcfg["timeout_seconds"])
@@ -105,7 +102,7 @@ def main():
 
     log_dir = ROOT / "99_로그" / "runs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    raw_log = log_dir / f"{args.date}_{TRACK}_judge_{stamp}.jsonl"
+    raw_log = log_dir / f"{args.date}_{track}_judge_{stamp}.jsonl"
     raw_log.write_text(proc.stdout, encoding="utf-8")
     init, result = rp.parse_events(proc.stdout)
 
@@ -115,7 +112,7 @@ def main():
     elif not isinstance(result.get("structured_output"), dict):
         status, detail = "error", "structured_output 없음: " + str(result.get("result", ""))[:300]
     else:
-        judgment = {"schema_version": "0.1", "track": TRACK, "trade_date": args.date,
+        judgment = {"schema_version": "0.1", "track": track, "trade_date": args.date,
                     "judge_prompt_version": prompt_version, "judge_model_id": init.get("model", "unknown"),
                     "judged_at": rp.kst_str(started), "prediction_executed_at": pred["executed_at"],
                     **result["structured_output"]}
@@ -125,7 +122,7 @@ def main():
             status, detail = "invalid", "; ".join(errs)
 
     with open(ROOT / "99_로그" / "runs.log.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps({"date": args.date, "track": TRACK, "kind": "judge", "dry_run": args.dry_run,
+        f.write(json.dumps({"date": args.date, "track": track, "kind": "judge", "dry_run": args.dry_run,
                             "status": status, "model_id": init.get("model"), "prompt_version": prompt_version,
                             "executed_at": rp.kst_str(started), "cost_usd": result.get("total_cost_usd"),
                             "duration_ms": result.get("duration_ms"), "detail": detail,

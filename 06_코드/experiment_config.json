@@ -1,24 +1,45 @@
 {
-  "experiment": "오전 매크로 정보 기반 국내시장 잔여장 방향 예측",
-  "config_version": "0.2",
+  "experiment": "데일리 리서치·전일 종가 기반 다음 거래일 국내 채권 방향 예측",
+  "config_version": "0.3",
+  "default_track": "A",
   "tracks": {
-    "B": {
-      "cutoff_time_kst": "10:00",
-      "window": "T -> 당일 장 마감",
-      "status": "active"
-    },
     "A": {
-      "cutoff_time_kst": null,
-      "window": "장마감 후 -> 다음 거래일",
-      "status": "planned"
+      "status": "active",
+      "window": "D-1 종가 -> D 종가 (D 개장 전 실행)",
+      "scheduled_time_kst": "08:30",
+      "cutoff_time_kst": "08:45",
+      "capture_tolerance_minutes": 0,
+      "execute_before_cutoff": true,
+      "neutral_band_ticks": 16,
+      "dryrun_neutral_band_ticks": 16,
+      "neutral_band_note": "2026-11-09 확정. KRX 10년 국채선물 지수(1301) 2025-11-07~2026-11-09, 244일 일간 변동을 틱으로 환산: |변동| 평균 38.3, 중앙값 32.0 -> 사전 규칙(중앙값의 절반) 16틱, 중립 비율 약 21%. 원자료 02_시장데이터/과거/KTB10Y선물지수_일별_KRX1301_20261109.csv",
+      "prompt_file": "prompts/predictor_A_v1.0.md",
+      "judge_prompt_file": "prompts/judge_A_v1.0.md",
+      "ust_baseline_min_bp": 2.0,
+      "ust_baseline_note": "기준선 us_rates: 간밤 미국채 10Y 변화가 -2bp 이하면 up, +2bp 이상이면 down, 그 사이는 neutral"
+    },
+    "B": {
+      "status": "paused",
+      "window": "T(10:00) -> 당일 장 마감",
+      "scheduled_time_kst": "10:00",
+      "cutoff_time_kst": "10:00",
+      "capture_tolerance_minutes": 5,
+      "execute_before_cutoff": false,
+      "neutral_band_ticks": 3,
+      "dryrun_neutral_band_ticks": 3,
+      "neutral_band_note": "V0 시험운영 잠정값(2026-11-09 확정). 2026-11-09 운영 중단",
+      "prompt_file": "prompts/predictor_v1.0.md",
+      "judge_prompt_file": "prompts/judge_v1.0.md"
     }
   },
-  "late_tolerance_minutes": 5,
   "runner": {
     "model": "claude-sonnet-5-5",
-    "prompt_file": "prompts/predictor_v1.0.md",
-    "timeout_seconds": 600,
-    "dryrun_neutral_band_ticks": 3
+    "timeout_seconds": 600
+  },
+  "judge": {
+    "model": "claude-opus-5",
+    "timeout_seconds": 900,
+    "note": "예측 모델과 다른(상위) 모델로 채점해 자기 선호 편향을 줄임"
   },
   "tick_size": {
     "ktb10y_fut": 0.01,
@@ -26,7 +47,6 @@
     "verified": true,
     "note": "KRX 3년·10년 국채선물 호가단위 0.01pt"
   },
-  "neutral_band_ticks": 3,
   "close_definition": {
     "ktb_futures": "KRX 공식 종가",
     "kospi200": "현물 지수 종가",
@@ -35,14 +55,8 @@
   },
   "primary_metric": "ktb10y_fut 비중립 예측의 방향 적중률 및 신호당 평균 획득 틱 (기준선 대비)",
   "pending": [
+    "A: 월물 교체 기준일",
     "close_definition 확정 (종가 시각·출처 고정)",
     "runner.model 확정 (첫 정식 실행 전 고정, 이후 변경 시 새 버전)"
-  ],
-  "neutral_band_note": "V0 시험운영 잠정값(2026-11-09 확정). 과거 분봉 확보 후 V1에서 T->마감 변동 분포로 재산정",
-  "judge": {
-    "model": "claude-opus-5",
-    "prompt_file": "prompts/judge_v1.0.md",
-    "timeout_seconds": 900,
-    "note": "예측 모델과 다른(상위) 모델로 채점해 자기 선호 편향을 줄임"
-  }
+  ]
 }

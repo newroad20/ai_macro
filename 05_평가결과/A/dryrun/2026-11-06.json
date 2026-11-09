@@ -1,0 +1,86 @@
+{
+  "eval_version": "0.2",
+  "track": "A",
+  "trade_date": "2026-11-06",
+  "late": false,
+  "dry_run": true,
+  "evaluated_at": "2026-11-09T14:17:43+09:00",
+  "model_id": "claude-sonnet-5-5",
+  "prompt_version": "A_v1.0",
+  "neutral_band_ticks": 16,
+  "primary": {
+    "instrument": "ktb10y_fut",
+    "window": "D-1 종가 -> D 종가",
+    "pre_ticks": 69.0,
+    "actual_ticks": 18.0,
+    "actual_direction": "up",
+    "pred_direction": "up",
+    "pred_ticks": 18,
+    "confidence": "low",
+    "prob": {
+      "up": 0.46,
+      "neutral": 0.4,
+      "down": 0.14
+    },
+    "tick_error": 0.0,
+    "prob_of_actual": 0.46
+  },
+  "signals": {
+    "ai": {
+      "direction": "up",
+      "signal": true,
+      "hit": true,
+      "ticks_gained": 18.0
+    },
+    "momentum": {
+      "direction": "up",
+      "signal": true,
+      "hit": true,
+      "ticks_gained": 18.0
+    },
+    "reversal": {
+      "direction": "down",
+      "signal": true,
+      "hit": false,
+      "ticks_gained": -18.0
+    },
+    "neutral": {
+      "direction": "neutral",
+      "signal": false,
+      "hit": null,
+      "ticks_gained": 0.0
+    },
+    "us_rates": {
+      "direction": "up",
+      "signal": true,
+      "hit": true,
+      "ticks_gained": 18.0
+    }
+  },
+  "secondary": {
+    "ktb3y_fut_ticks": {
+      "pred_direction": "up",
+      "pred": 6,
+      "actual": 16.0,
+      "error": 10.0,
+      "sign_match": true
+    },
+    "kospi200_return_pct": {
+      "pred_direction": "down",
+      "pred": -3,
+      "actual": -6.511,
+      "error": -3.511,
+      "sign_match": true
+    },
+    "usdkrw_change_krw": {
+      "pred_direction": "up",
+      "pred": 10,
+      "actual": 14.5,
+      "error": 4.5,
+      "sign_match": true
+    }
+  },
+  "notes": [
+    "리포트 방향 태깅 없음 -> report_* 미계산"
+  ]
+}

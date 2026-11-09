@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""B 트랙 예측 실행기.
+"""예측 실행기 (기본 트랙 A).
 
 입력 패키지 생성 -> 프로젝트 밖 임시 폴더에서 격리된 `claude -p` 실행 -> 스키마·의미 검증 -> 저장.
 
-정식 실행:  python run_prediction.py 2026-11-05
-시험 실행:  python run_prediction.py 2026-11-05 --dry-run --snapshot dryrun/2026-11-05.snapshot.json
+정식 실행:  python run_prediction.py 2026-11-10                 # A: 08:45 전에 끝나야 정시
+시험 실행:  python run_prediction.py 2026-11-06 --dry-run       # 스냅샷: 06_코드/dryrun/A/<날짜>.snapshot.json
+B 트랙:     python run_prediction.py 2026-11-09 --track B --dry-run
 
 설계 원칙
 - 예측 세션은 임시 폴더의 입력 파일만 본다 (--safe-mode, Read 도구만, 폴더 밖 읽기는 권한 거부).
@@ -19,42 +20,23 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+import common as cm
+from common import ROOT, CODE, SCHEMAS, fail, kst_now, kst_str, load_json
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-ROOT = Path(__file__).resolve().parents[1]
-CODE = ROOT / "06_코드"
-SCHEMAS = CODE / "schemas"
-TRACK = "B"
-KST = timezone(timedelta(hours=9))  # 한국은 서머타임이 없으므로 고정 오프셋 사용
 META_FIELDS = ["schema_version", "track", "trade_date", "prompt_version", "model_id",
                "executed_at", "input_manifest_sha256"]
 
 
-def load_json(path):
-    return json.loads(Path(path).read_text(encoding="utf-8"))
-
-
-def kst_now():
-    return datetime.now(KST).replace(microsecond=0)
-
-
-def kst_str(dt):
-    return dt.strftime("%Y-%m-%dT%H:%M:%S+09:00")
-
-
 def sha256_file(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-
-
-def fail(msg):
-    print(f"[중단] {msg}", file=sys.stderr)
-    sys.exit(2)
 
 
 def schema_errors(schema_name, instance):
@@ -63,17 +45,19 @@ def schema_errors(schema_name, instance):
             for e in Draft202012Validator(schema).iter_errors(instance)]
 
 
-def timing_problems(snap):
-    """late 사유 목록. 비어 있으면 정시."""
-    cfg = load_json(CODE / "experiment_config.json")
-    sched = datetime.fromisoformat(snap["scheduled_at"])
+def timing_problems(snap, tcfg, run_at=None):
+    """late 사유 목록. 비어 있으면 정시. A는 예측 실행도 컷오프 전이어야 한다."""
+    cutoff = cm.at_time(snap["trade_date"], tcfg["cutoff_time_kst"])
     problems = []
-    if datetime.fromisoformat(snap["captured_at"]) > sched + timedelta(minutes=cfg["late_tolerance_minutes"]):
-        problems.append(f"스냅샷 기록({snap['captured_at']})이 허용 범위를 넘음")
+    cap_limit = cutoff + timedelta(minutes=tcfg["capture_tolerance_minutes"])
+    if datetime.fromisoformat(snap["captured_at"]) > cap_limit:
+        problems.append(f"스냅샷 기록({snap['captured_at'][11:16]})이 기준({cap_limit:%H:%M}) 이후")
     for r in snap["reports"]:
         for key in ("pdf_created_at", "obtained_at"):
-            if datetime.fromisoformat(r[key]) > sched:
-                problems.append(f"{r['source']} {key}({r[key]})가 T 이후")
+            if datetime.fromisoformat(r[key]) > cutoff:
+                problems.append(f"{r['source']} {key}({r[key][11:16]})가 컷오프({cutoff:%H:%M}) 이후")
+    if tcfg.get("execute_before_cutoff") and run_at and run_at > cutoff:
+        problems.append(f"예측 실행({run_at:%H:%M})이 컷오프({cutoff:%H:%M}) 이후")
     return problems
 
 
@@ -150,75 +134,72 @@ def semantic_errors(pred, neutral_band):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("date", help="거래일 YYYY-MM-DD")
-    ap.add_argument("--dry-run", action="store_true", help="결과를 99_로그/dryrun 에만 저장 (late 검사는 경고만)")
-    ap.add_argument("--snapshot", help="스냅샷 경로 (기본: 02_시장데이터/스냅샷/B/<date>.json)")
-    ap.add_argument("--allow-late", action="store_true", help="late 상태로 실행하고 04_예측결과/B/late/ 에 저장")
+    ap.add_argument("--track", choices=cm.TRACKS, default=cm.config().get("default_track", "A"))
+    ap.add_argument("--dry-run", action="store_true", help="결과를 시험 폴더에만 저장 (late 검사는 경고만)")
+    ap.add_argument("--snapshot", help="스냅샷 경로 (기본: 정식 02_시장데이터/스냅샷/<트랙>/, 시험 06_코드/dryrun/...)")
+    ap.add_argument("--allow-late", action="store_true", help="late 상태로 실행하고 04_예측결과/<트랙>/late/ 에 저장")
     args = ap.parse_args()
-    date = args.date
+    date, track = args.date, args.track
 
-    cfg = load_json(CODE / "experiment_config.json")
+    cfg = cm.config()
+    tcfg = cm.track_cfg(cfg, track)
     if args.snapshot:
         snap_path = Path(args.snapshot)
         if not snap_path.exists():  # 06_코드 기준 상대경로도 허용
             snap_path = CODE / args.snapshot
     else:
-        snap_path = ROOT / "02_시장데이터" / "스냅샷" / TRACK / f"{date}.json"
+        snap_path = cm.snapshot_path(track, date, args.dry_run)
     if not snap_path.exists():
         fail(f"스냅샷 없음: {snap_path}")
     snap = load_json(snap_path)
     errs = schema_errors("snapshot.schema.json", snap)
     if errs:
         fail("스냅샷이 스키마에 맞지 않음:\n  " + "\n  ".join(errs))
-    if snap["trade_date"] != date:
-        fail(f"스냅샷 trade_date({snap['trade_date']})와 인자({date})가 다름")
+    if snap["trade_date"] != date or snap["track"] != track:
+        fail(f"스냅샷({snap['track']} {snap['trade_date']})과 인자({track} {date})가 다름")
 
-    out_dir = ROOT / "04_예측결과" / TRACK
-    late_problems = timing_problems(snap)
+    out_dir = cm.prediction_dir(track)
+    started = kst_now()
+    late_problems = timing_problems(snap, tcfg, started)
     is_late = bool(late_problems)
+    neutral_band = cm.neutral_band(tcfg, args.dry_run)
     if not args.dry_run:
-        neutral_band = cfg["neutral_band_ticks"]
-        if neutral_band is None:
-            fail("experiment_config.json 의 neutral_band_ticks 가 미확정(null). 정식 실행 전 확정 필요.")
-        if (ROOT / "02_시장데이터" / "정답" / TRACK / f"{date}.json").exists():
+        if tcfg["status"] != "active":
+            fail(f"{track} 트랙은 현재 {tcfg['status']} 상태. 정식 실행 불가 (시험은 --dry-run).")
+        if cm.answer_path(track, date).exists():
             fail("정답 파일이 이미 존재함. 정답 기록 이후의 예측은 정식 표본이 될 수 없음.")
         for d in (out_dir, out_dir / "late"):
             if (d / f"{date}.json").exists():
                 fail(f"이미 예측 파일이 있음: {d / (date + '.json')} (덮어쓰기 금지)")
         if is_late and not args.allow_late:
             fail("late 상태:\n  " + "\n  ".join(late_problems) + "\n  --allow-late 로 late 분리 저장 가능")
-    else:
-        neutral_band = cfg["neutral_band_ticks"] if cfg["neutral_band_ticks"] is not None else cfg["runner"]["dryrun_neutral_band_ticks"]
-        if cfg["neutral_band_ticks"] is None:
-            print(f"[경고] neutral_band_ticks 미확정 -> 시험용 임시값 {neutral_band} 사용")
+    elif tcfg["neutral_band_ticks"] is None:
+        print(f"[경고] {track} neutral_band_ticks 미확정 -> 시험용 임시값 {neutral_band} 사용")
     for p in late_problems:
-        print(f"[late] {p}")
-    if not cfg["tick_size"]["verified"]:
-        print("[경고] tick_size 미검증 (0.01 가정)")
+        print(f"[late{' (시험이라 경고만)' if args.dry_run else ''}] {p}")
 
-    prompt_path = CODE / cfg["runner"]["prompt_file"]
+    prompt_path = CODE / tcfg["prompt_file"]
     prompt_version = prompt_path.stem.split("_", 1)[1]
     system_prompt = prompt_path.read_text(encoding="utf-8").format(
         neutral_band_ticks=neutral_band, tick_size=cfg["tick_size"]["ktb10y_fut"])
 
-    started = kst_now()
     stamp = started.strftime("%Y%m%dT%H%M%S")
     log_dir = ROOT / "99_로그"
     (log_dir / "runs").mkdir(parents=True, exist_ok=True)
     pdf_dir = ROOT / "01_리서치_원본" / date
 
-    pkg_record = ROOT / "03_가공데이터" / TRACK / date
     with tempfile.TemporaryDirectory(prefix="ai_macro_run_") as tmp:
         work = Path(tmp)
         manifest_hash = build_package(snap, pdf_dir, work)
         if not args.dry_run:
-            shutil.copytree(work, pkg_record, dirs_exist_ok=True)
-        print(f"[실행] model={cfg['runner']['model']} prompt={prompt_version} manifest={manifest_hash[:12]}…")
+            shutil.copytree(work, ROOT / "03_가공데이터" / track / date, dirs_exist_ok=True)
+        print(f"[실행] track={track} model={cfg['runner']['model']} prompt={prompt_version} manifest={manifest_hash[:12]}…")
         try:
             proc = run_claude(work, system_prompt, cfg["runner"]["model"], cfg["runner"]["timeout_seconds"])
         except subprocess.TimeoutExpired:
             fail("claude 실행 시간 초과")
 
-    raw_log = log_dir / "runs" / f"{date}_{TRACK}_{stamp}.jsonl"
+    raw_log = log_dir / "runs" / f"{date}_{track}_{stamp}.jsonl"
     raw_log.write_text(proc.stdout, encoding="utf-8")
     init, result = parse_events(proc.stdout)
     status, detail = "ok", ""
@@ -228,7 +209,7 @@ def main():
     elif not isinstance(result.get("structured_output"), dict):
         status, detail = "error", "structured_output 없음: " + str(result.get("result", ""))[:300]
     else:
-        pred = {"schema_version": "0.1", "track": TRACK, "trade_date": date,
+        pred = {"schema_version": "0.1", "track": track, "trade_date": date,
                 "prompt_version": prompt_version, "model_id": init.get("model", "unknown"),
                 "executed_at": kst_str(started), "input_manifest_sha256": manifest_hash,
                 **result["structured_output"]}
@@ -237,7 +218,7 @@ def main():
             status, detail = "invalid", "; ".join(problems)
 
     usage = result.get("usage", {})
-    summary = {"date": date, "track": TRACK, "dry_run": args.dry_run, "late": is_late, "status": status,
+    summary = {"date": date, "track": track, "dry_run": args.dry_run, "late": is_late, "status": status,
                "model_id": init.get("model"), "prompt_version": prompt_version,
                "executed_at": kst_str(started), "cost_usd": result.get("total_cost_usd"),
                "duration_ms": result.get("duration_ms"), "output_tokens": usage.get("output_tokens"),
@@ -250,7 +231,7 @@ def main():
         sys.exit(1)
 
     if args.dry_run:
-        dest = log_dir / "dryrun" / f"{date}_{stamp}.prediction.json"
+        dest = cm.dryrun_log_dir(track) / f"{date}_{stamp}.prediction.json"
     else:
         dest = (out_dir / "late" if is_late else out_dir) / f"{date}.json"
     dest.parent.mkdir(parents=True, exist_ok=True)

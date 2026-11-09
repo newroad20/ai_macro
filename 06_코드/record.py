@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
-"""스냅샷·정답 기록기. 숫자 몇 개만 넘기면 나머지는 자동으로 채운다.
+"""스냅샷·정답 기록기. 숫자 몇 개만 넘기면 나머지는 자동으로 채운다. 기본 트랙은 A.
 
-  # 거래일 T(10:00)에 — 입력 6개
-  python record.py snapshot 2026-11-06 --f3 103.62 --f10 108.71 --k200 395.12 --fx 1339.8 --spx 0.41 --ndx 0.62
+A 트랙 (주 트랙: 개장 전 실행, 전일 종가 -> 당일 종가)
+  # 거래일 D 아침 08:45 전 — 미국 값 3개 (국내 전일 종가는 직전 정답 파일에서 자동)
+  python record.py snapshot 2026-11-10 --spx 0.31 --ndx 1.09 --ust10y -5.2
+  # D 장 마감 후 — 종가 4개 (이 파일이 다음 거래일의 전일 종가가 된다)
+  python record.py answer 2026-11-10 --f3 103.90 --f10 109.45 --k200 790.1 --fx 1350.2
 
-  # 장 마감 후 (예측이 저장된 뒤) — 입력 4개
-  python record.py answer 2026-11-06 --f3 103.90 --f10 108.95 --k200 396.40 --fx 1337.5
+  첫날처럼 직전 정답 파일이 없으면 --prev-f3/--prev-f10/--prev-k200/--prev-fx 로 전일 종가를,
+  --prev-ticks10/--prev-ticks3 으로 전일 국채선물 변동(틱)을 준다(전일 지속·반전 기준선용, 선택).
 
-자동으로 채우는 값: scheduled_at(설정의 T), captured_at(지금), 리포트 생성·입수 시각(PDF),
+B 트랙 (중단·보관: 10:00 값 -> 마감)
+  python record.py snapshot 2026-11-06 --track B --f3 103.62 --f10 108.71 --k200 395.12 --fx 1339.8 --spx 0.41 --ndx 0.62
+  python record.py answer   2026-11-06 --track B --f3 103.90 --f10 108.95 --k200 396.40 --fx 1337.5
+
+자동으로 채우는 값: scheduled_at(설정), captured_at(지금), 리포트 생성·입수 시각(PDF 워터마크),
 전일 종가(직전 정답 파일), 미국 세션 날짜(직전 평일).
---prev-f3/--prev-f10/--prev-k200/--prev-fx 로 전일 종가를 직접 줄 수 있다 (첫날 등).
---dry-run 은 파일을 쓰지 않고 결과만 출력한다.
+--dry-run: 시험 기록. 날짜·시각 검사를 건너뛰고 시험 폴더에 저장한다
+  (A: 06_코드/dryrun/A/, 99_로그/dryrun/A/ · B: 06_코드/dryrun/, 99_로그/dryrun/).
 """
 import argparse
 import json
-import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
@@ -23,47 +29,26 @@ from pathlib import Path
 import pypdf
 from jsonschema import Draft202012Validator
 
+import common as cm
+from common import ROOT, KST, fail, kst_str, load_json
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-ROOT = Path(os.environ.get("AI_MACRO_ROOT") or Path(__file__).resolve().parents[1])
-CODE = Path(__file__).resolve().parent
-TRACK = "B"
-KST = timezone(timedelta(hours=9))
 INSTR = {"f3": "ktb3y_fut", "f10": "ktb10y_fut", "k200": "kospi200", "fx": "usdkrw"}
+TICK_ARGS = {"ktb10y_fut": "prev_ticks10", "ktb3y_fut": "prev_ticks3"}
 # 전일 종가 대비 허용 변화율(%). 초과하면 오입력으로 보고 거부 (--force 로 무시)
 MAX_MOVE_PCT = {"ktb3y_fut": 1.0, "ktb10y_fut": 1.5, "kospi200": 6.0, "usdkrw": 2.5}
 MAX_US_PCT = 8.0
+MAX_UST_BP = 40.0
 MARKET_CLOSE = (15, 45)
 
 
-def fail(msg):
-    print(f"[중단] {msg}", file=sys.stderr)
-    sys.exit(2)
-
-
-def kst_str(dt):
-    return dt.strftime("%Y-%m-%dT%H:%M:%S+09:00")
-
-
-def load_json(p):
-    return json.loads(Path(p).read_text(encoding="utf-8"))
-
-
 def validate(schema_name, obj):
-    schema = load_json(CODE / "schemas" / schema_name)
+    schema = load_json(cm.SCHEMAS / schema_name)
     errs = [f"{'/'.join(map(str, e.path)) or '(root)'}: {e.message}" for e in Draft202012Validator(schema).iter_errors(obj)]
     if errs:
         fail("스키마 검증 실패:\n  " + "\n  ".join(errs))
-
-
-def previous_close(date):
-    """직전 정답 파일의 종가 (날짜가 date보다 이른 것 중 가장 최근)."""
-    d = ROOT / "02_시장데이터" / "정답" / TRACK
-    files = sorted(p for p in d.glob("*.json") if p.stem < date) if d.exists() else []
-    if not files:
-        return None, None
-    return load_json(files[-1])["close"], files[-1].stem
 
 
 def previous_weekday(date):
@@ -115,97 +100,152 @@ def find_reports(date):
     return out
 
 
-def check_args(args, today):
-    now = datetime.now(KST).replace(microsecond=0)
-    if not args.dry_run and args.date != today:
-        fail(f"정식 기록은 거래일 당일에만 가능 (오늘 {today}). 연습은 --dry-run.")
+def check_date(args):
+    now = cm.kst_now()
+    if not args.dry_run and args.date != now.strftime("%Y-%m-%d"):
+        fail(f"정식 기록은 거래일 당일에만 가능 (오늘 {now:%Y-%m-%d}). 연습은 --dry-run.")
     return now
 
 
-def snapshot(args):
-    cfg = load_json(CODE / "experiment_config.json")
-    now = check_args(args, datetime.now(KST).strftime("%Y-%m-%d"))
-    out = ROOT / "02_시장데이터" / "스냅샷" / TRACK / f"{args.date}.json"
-    if out.exists() and not args.dry_run:
-        fail(f"이미 스냅샷이 있음: {out} (덮어쓰기 금지)")
-    vals = {k: getattr(args, k) for k in INSTR}
-    prev_in = {k: getattr(args, "prev_" + k) for k in INSTR}
-    missing = [f"--{k}" for k, v in vals.items() if v is None]
-    if missing or args.spx is None or args.ndx is None:
-        fail("필수 입력 누락: " + " ".join(missing + [f"--{n}" for n, v in (("spx", args.spx), ("ndx", args.ndx)) if v is None]))
-    prev, prev_date = previous_close(args.date)
-    kr = {}
-    for k, name in INSTR.items():
-        p = prev_in[k] if prev_in[k] is not None else (prev or {}).get(name)
-        if p is None:
-            fail(f"전일 종가를 알 수 없음({name}). 직전 정답 파일이 없으니 --prev-{k} 로 직접 입력하세요.")
-        move = abs(vals[k] / p - 1) * 100
-        if move > MAX_MOVE_PCT[name] and not args.force:
-            fail(f"{name}: 전일 종가 {p} 대비 {move:.2f}% 변화 (허용 {MAX_MOVE_PCT[name]}%). 오입력이면 수정, 맞으면 --force.")
-        kr[name] = {"prev_close": p, "value_at_t": vals[k]}
+def check_move(name, value, prev, force):
+    move = abs(value / prev - 1) * 100
+    if move > MAX_MOVE_PCT[name] and not force:
+        fail(f"{name}: 전일 종가 {prev} 대비 {move:.2f}% 변화 (허용 {MAX_MOVE_PCT[name]}%). 오입력이면 수정, 맞으면 --force.")
+
+
+def us_block(args):
     for n, v in (("S&P500", args.spx), ("Nasdaq", args.ndx)):
         if abs(v) > MAX_US_PCT and not args.force:
             fail(f"{n} 등락률 {v}% 는 비정상 범위. 오입력이면 수정, 맞으면 --force.")
-    hh, mm = map(int, cfg["tracks"][TRACK]["cutoff_time_kst"].split(":"))
-    sched = datetime.strptime(args.date, "%Y-%m-%d").replace(hour=hh, minute=mm, tzinfo=KST)
-    snap = {"schema_version": "0.1", "track": TRACK, "trade_date": args.date,
+    us = {"as_of_date": args.us_date or previous_weekday(args.date),
+          "sp500": {"change_pct": args.spx}, "nasdaq": {"change_pct": args.ndx}}
+    if args.ust10y is not None:
+        if abs(args.ust10y) > MAX_UST_BP and not args.force:
+            fail(f"미국채 10Y 변화 {args.ust10y}bp 는 비정상 범위. 오입력이면 수정, 맞으면 --force.")
+        us["ust10y"] = {"change_bp": args.ust10y}
+        if args.ust10y_yield is not None:
+            us["ust10y"]["yield"] = args.ust10y_yield
+    return us
+
+
+def write_out(obj, out, dry, force):
+    if out.exists() and not (dry and force):
+        fail(f"이미 파일이 있음: {out} (덮어쓰기 금지{' — 시험 파일은 --force 로 덮어쓰기 가능' if dry else ''})")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[저장{' (시험)' if dry else ''}] {out.relative_to(ROOT)}")
+
+
+def snapshot(args):
+    cfg = cm.config()
+    tcfg = cm.track_cfg(cfg, args.track)
+    now = check_date(args)
+    out = cm.snapshot_path(args.track, args.date, args.dry_run)
+
+    need = [("--spx", args.spx), ("--ndx", args.ndx)]
+    if args.track == "A":
+        need.append(("--ust10y", args.ust10y))
+    else:
+        need += [(f"--{k}", getattr(args, k)) for k in INSTR]
+    missing = [n for n, v in need if v is None]
+    if missing:
+        fail("필수 입력 누락: " + " ".join(missing))
+
+    prevs = cm.previous_answers(args.track, args.date, args.dry_run, n=2)
+    last = prevs[-1][1] if prevs else None
+    if last and args.prev_f10 is None and prevs[-1][0] != previous_weekday(args.date):
+        print(f"[주의] 직전 정답이 {prevs[-1][0]} 것임 (직전 평일 {previous_weekday(args.date)} 아님). "
+              "휴장일이 아니라면 빠진 날의 정답을 먼저 기록하거나 --prev-* 로 직접 주세요.")
+    if last and args.contract and last.get("ktb_contract") and last["ktb_contract"] != args.contract:
+        print(f"[주의] 직전 정답 월물({last['ktb_contract']})과 입력 월물({args.contract})이 다름. "
+              "월물 교체일이면 --prev-f3/--prev-f10 으로 새 월물의 전일 종가를 직접 주세요.")
+    kr = {}
+    for k, name in INSTR.items():
+        given = getattr(args, "prev_" + k)
+        p = given if given is not None else (last["close"][name] if last else None)
+        if p is None:
+            fail(f"전일 종가를 알 수 없음({name}). 직전 정답 파일이 없으니 --prev-{k} 로 직접 입력하세요.")
+        kr[name] = {"prev_close": p}
+        if args.track == "B":
+            check_move(name, getattr(args, k), p, args.force)
+            kr[name]["value_at_t"] = getattr(args, k)
+    if args.track == "A":  # 전일 변동 (전일 지속·반전 기준선용)
+        for name, targ in TICK_ARGS.items():
+            ticks = getattr(args, targ)
+            if ticks is not None:
+                kr[name]["prev_change"] = round(ticks * cfg["tick_size"][name], 4)
+            elif len(prevs) == 2 and getattr(args, "prev_" + {v: k for k, v in INSTR.items()}[name]) is None:
+                kr[name]["prev_change"] = round(prevs[1][1]["close"][name] - prevs[0][1]["close"][name], 4)
+
+    sched = cm.at_time(args.date, tcfg["scheduled_time_kst"])
+    snap = {"schema_version": "0.1", "track": args.track, "trade_date": args.date,
             "scheduled_at": kst_str(sched), "captured_at": kst_str(now),
-            "reports": find_reports(args.date),
-            "us_close": {"as_of_date": args.us_date or previous_weekday(args.date),
-                         "sp500": {"change_pct": args.spx}, "nasdaq": {"change_pct": args.ndx}},
-            "kr": kr}
+            "reports": find_reports(args.date), "us_close": us_block(args), "kr": kr}
+    if args.contract:
+        snap["ktb_contract"] = args.contract
+    if args.note:
+        snap["note"] = args.note
     validate("snapshot.schema.json", snap)
-    late_min = (now - sched).total_seconds() / 60
-    print(f"  전일 종가 출처: {'직전 정답 ' + prev_date if prev else '직접 입력'} / 미국 세션 {snap['us_close']['as_of_date']}")
-    if late_min > cfg["late_tolerance_minutes"]:
-        print(f"[late 예상] 기록 시각이 T보다 {late_min:.0f}분 늦음 (허용 {cfg['late_tolerance_minutes']}분). 예측 실행 시 --allow-late 필요.")
-    show(snap, out, args.dry_run)
+
+    print(f"  전일 종가 출처: {'직전 정답 ' + prevs[-1][0] if last and args.prev_f10 is None else '직접 입력'}"
+          f" / 미국 세션 {snap['us_close']['as_of_date']}")
+    if args.track == "A" and "prev_change" not in kr["ktb10y_fut"]:
+        print("  [안내] 10년 선물 전일 변동 없음 -> 전일 지속·반전 기준선은 이날 계산하지 않음 (--prev-ticks10 로 입력 가능)")
+    limit = cm.at_time(args.date, tcfg["cutoff_time_kst"]) + timedelta(minutes=tcfg["capture_tolerance_minutes"])
+    if now > limit and not args.dry_run:
+        print(f"[late 예상] 기록 시각 {now:%H:%M}이 기준({limit:%H:%M})보다 늦음. 예측 실행 시 --allow-late 필요.")
+    write_out(snap, out, args.dry_run, args.force)
 
 
 def answer(args):
-    now = check_args(args, datetime.now(KST).strftime("%Y-%m-%d"))
-    out = ROOT / "02_시장데이터" / "정답" / TRACK / f"{args.date}.json"
-    if out.exists() and not args.dry_run:
-        fail(f"이미 정답이 있음: {out} (덮어쓰기 금지)")
-    pred = ROOT / "04_예측결과" / TRACK
-    has_pred = any((d / f"{args.date}.json").exists() for d in (pred, pred / "late"))
-    if not has_pred and not args.force and not args.dry_run:
-        fail("이 날짜의 예측 파일이 없음. 예측 전에 정답을 기록하면 안 됨 (--force 로 무시 가능).")
-    if (now.hour, now.minute) < MARKET_CLOSE and not args.force and not args.dry_run:
-        fail(f"아직 장 마감 전 ({now:%H:%M}). {MARKET_CLOSE[0]}:{MARKET_CLOSE[1]} 이후에 기록 (--force 로 무시 가능).")
+    now = check_date(args)
+    out = cm.answer_path(args.track, args.date, args.dry_run)
+    if not args.dry_run:
+        pred = cm.prediction_dir(args.track)
+        has_pred = any((d / f"{args.date}.json").exists() for d in (pred, pred / "late"))
+        if not has_pred and not args.force:
+            fail("이 날짜의 예측 파일이 없음. 예측 전에 정답을 기록하면 안 됨 (--force 로 무시 가능).")
+        if (now.hour, now.minute) < MARKET_CLOSE and not args.force:
+            fail(f"아직 장 마감 전 ({now:%H:%M}). {MARKET_CLOSE[0]}:{MARKET_CLOSE[1]} 이후에 기록 (--force 로 무시 가능).")
     missing = [f"--{k}" for k in INSTR if getattr(args, k) is None]
     if missing:
         fail("필수 입력 누락: " + " ".join(missing))
-    ans = {"schema_version": "0.1", "track": TRACK, "trade_date": args.date, "recorded_at": kst_str(now),
+    snap_p = cm.snapshot_path(args.track, args.date, args.dry_run)
+    if snap_p.exists():  # 오입력 검사: 그날 스냅샷의 전일 종가 대비
+        kr = load_json(snap_p)["kr"]
+        for k, name in INSTR.items():
+            check_move(name, getattr(args, k), kr[name]["prev_close"], args.force)
+    ans = {"schema_version": "0.1", "track": args.track, "trade_date": args.date, "recorded_at": kst_str(now),
            "close": {name: getattr(args, k) for k, name in INSTR.items()}}
+    if args.contract:
+        ans["ktb_contract"] = args.contract
     if args.source:
         ans["source"] = args.source
+    if args.note:
+        ans["note"] = args.note
     validate("answer.schema.json", ans)
-    show(ans, out, args.dry_run)
-
-
-def show(obj, out, dry):
-    text = json.dumps(obj, ensure_ascii=False, indent=2)
-    if dry:
-        print("[dry-run] 저장하지 않음:\n" + text)
-        return
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(text, encoding="utf-8")
-    print(f"[저장] {out.relative_to(ROOT)}")
+    write_out(ans, out, args.dry_run, args.force)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("kind", choices=["snapshot", "answer"])
     ap.add_argument("date", help="거래일 YYYY-MM-DD")
+    ap.add_argument("--track", choices=cm.TRACKS, default=cm.config().get("default_track", "A"))
     for k, label in (("f3", "3년 국채선물"), ("f10", "10년 국채선물"), ("k200", "KOSPI200"), ("fx", "USD/KRW")):
-        ap.add_argument(f"--{k}", type=float, help=f"{label} (snapshot: T 시점 값, answer: 종가)")
+        ap.add_argument(f"--{k}", type=float, help=f"{label} (answer: 종가, B snapshot: T 시점 값)")
         ap.add_argument(f"--prev-{k}", type=float, help=f"{label} 전일 종가 직접 입력")
-    ap.add_argument("--spx", type=float, help="S&P500 전일 등락률(%%)")
-    ap.add_argument("--ndx", type=float, help="Nasdaq 전일 등락률(%%)")
+    ap.add_argument("--prev-ticks10", type=float, help="A: 10년 국채선물 전일 변동(틱) 직접 입력")
+    ap.add_argument("--prev-ticks3", type=float, help="A: 3년 국채선물 전일 변동(틱) 직접 입력")
+    ap.add_argument("--spx", type=float, help="S&P500 직전 미국 세션 등락률(%%)")
+    ap.add_argument("--ndx", type=float, help="Nasdaq 직전 미국 세션 등락률(%%)")
+    ap.add_argument("--ust10y", type=float, help="A 필수: 미국채 10Y 직전 세션 변화(bp)")
+    ap.add_argument("--ust10y-yield", type=float, help="미국채 10Y 금리 수준(%%, 선택)")
     ap.add_argument("--us-date", help="미국 세션 날짜 (기본: 직전 평일, 미국 휴장일이면 지정)")
+    ap.add_argument("--contract", help="국채선물 월물 YYMM (예: 2612)")
     ap.add_argument("--source", help="정답 출처 메모")
-    ap.add_argument("--force", action="store_true", help="이상치·시각 검사 무시")
+    ap.add_argument("--note", help="메모")
+    ap.add_argument("--force", action="store_true", help="이상치·시각 검사 무시, 시험 파일 덮어쓰기")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
     (snapshot if args.kind == "snapshot" else answer)(args)

@@ -4,80 +4,252 @@
   "description": "direction은 선물 '가격' 기준이다. up = 가격 상승 = 금리 하락 = Long Duration.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "track", "trade_date", "prompt_version", "model_id", "executed_at", "input_manifest_sha256", "primary", "secondary", "rationale"],
+  "required": [
+    "schema_version",
+    "track",
+    "trade_date",
+    "prompt_version",
+    "model_id",
+    "executed_at",
+    "input_manifest_sha256",
+    "primary",
+    "secondary",
+    "rationale"
+  ],
   "$defs": {
-    "direction": { "enum": ["up", "neutral", "down"] },
-    "prob": { "type": "number", "minimum": 0, "maximum": 1 },
+    "direction": {
+      "enum": [
+        "up",
+        "neutral",
+        "down"
+      ]
+    },
+    "prob": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
     "driver": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["factor", "evidence", "source"],
+      "required": [
+        "factor",
+        "evidence",
+        "source"
+      ],
       "properties": {
-        "factor": { "type": "string", "minLength": 1 },
-        "evidence": { "type": "string", "minLength": 1, "description": "근거가 된 수치 또는 문장" },
-        "source": { "enum": ["daol", "eugene", "us_market", "snapshot"] }
+        "factor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "근거가 된 수치 또는 문장"
+        },
+        "source": {
+          "enum": [
+            "daol",
+            "eugene",
+            "us_market",
+            "snapshot"
+          ]
+        }
       }
     },
-    "string_list": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "string_list": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
   },
   "properties": {
-    "schema_version": { "const": "0.1" },
-    "track": { "enum": ["B"] },
-    "trade_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-    "prompt_version": { "type": "string", "minLength": 1 },
-    "model_id": { "type": "string", "minLength": 1 },
-    "executed_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\+09:00$" },
-    "input_manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "입력 패키지(스냅샷+PDF) 해시" },
+    "schema_version": {
+      "const": "0.1"
+    },
+    "track": {
+      "enum": [
+        "A",
+        "B"
+      ]
+    },
+    "trade_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "prompt_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "executed_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\+09:00$"
+    },
+    "input_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "입력 패키지(스냅샷+PDF) 해시"
+    },
     "primary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["instrument", "direction", "prob", "expected_ticks", "confidence", "duration_view"],
+      "required": [
+        "instrument",
+        "direction",
+        "prob",
+        "expected_ticks",
+        "confidence",
+        "duration_view"
+      ],
       "properties": {
-        "instrument": { "const": "ktb10y_fut" },
-        "direction": { "$ref": "#/$defs/direction" },
+        "instrument": {
+          "const": "ktb10y_fut"
+        },
+        "direction": {
+          "$ref": "#/$defs/direction"
+        },
         "prob": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["up", "neutral", "down"],
-          "properties": { "up": { "$ref": "#/$defs/prob" }, "neutral": { "$ref": "#/$defs/prob" }, "down": { "$ref": "#/$defs/prob" } }
+          "required": [
+            "up",
+            "neutral",
+            "down"
+          ],
+          "properties": {
+            "up": {
+              "$ref": "#/$defs/prob"
+            },
+            "neutral": {
+              "$ref": "#/$defs/prob"
+            },
+            "down": {
+              "$ref": "#/$defs/prob"
+            }
+          }
         },
-        "expected_ticks": { "type": "number", "description": "T -> 마감 예상 변동(틱, 부호 포함)" },
-        "confidence": { "enum": ["high", "mid", "low"] },
-        "duration_view": { "enum": ["long", "neutral", "short"] }
+        "expected_ticks": {
+          "type": "number",
+          "description": "예측 구간(A: 전일 종가->당일 종가, B: T->마감) 예상 변동(틱, 부호 포함)"
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "mid",
+            "low"
+          ]
+        },
+        "duration_view": {
+          "enum": [
+            "long",
+            "neutral",
+            "short"
+          ]
+        }
       }
     },
     "secondary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ktb3y_fut", "kospi200", "usdkrw"],
+      "required": [
+        "ktb3y_fut",
+        "kospi200",
+        "usdkrw"
+      ],
       "properties": {
         "ktb3y_fut": {
-          "type": "object", "additionalProperties": false,
-          "required": ["direction", "expected_ticks"],
-          "properties": { "direction": { "$ref": "#/$defs/direction" }, "expected_ticks": { "type": "number" } }
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "direction",
+            "expected_ticks"
+          ],
+          "properties": {
+            "direction": {
+              "$ref": "#/$defs/direction"
+            },
+            "expected_ticks": {
+              "type": "number"
+            }
+          }
         },
         "kospi200": {
-          "type": "object", "additionalProperties": false,
-          "required": ["direction", "expected_return_pct"],
-          "properties": { "direction": { "$ref": "#/$defs/direction" }, "expected_return_pct": { "type": "number" } }
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "direction",
+            "expected_return_pct"
+          ],
+          "properties": {
+            "direction": {
+              "$ref": "#/$defs/direction"
+            },
+            "expected_return_pct": {
+              "type": "number"
+            }
+          }
         },
         "usdkrw": {
-          "type": "object", "additionalProperties": false,
-          "required": ["direction", "expected_change_krw"],
-          "properties": { "direction": { "$ref": "#/$defs/direction" }, "expected_change_krw": { "type": "number" } }
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "direction",
+            "expected_change_krw"
+          ],
+          "properties": {
+            "direction": {
+              "$ref": "#/$defs/direction"
+            },
+            "expected_change_krw": {
+              "type": "number"
+            }
+          }
         }
       }
     },
     "rationale": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["up_drivers", "down_drivers", "already_priced_in", "invalidation_conditions", "low_confidence_reasons"],
+      "required": [
+        "up_drivers",
+        "down_drivers",
+        "already_priced_in",
+        "invalidation_conditions",
+        "low_confidence_reasons"
+      ],
       "properties": {
-        "up_drivers": { "type": "array", "items": { "$ref": "#/$defs/driver" } },
-        "down_drivers": { "type": "array", "items": { "$ref": "#/$defs/driver" } },
-        "already_priced_in": { "$ref": "#/$defs/string_list" },
-        "invalidation_conditions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-        "low_confidence_reasons": { "$ref": "#/$defs/string_list" }
+        "up_drivers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/driver"
+          }
+        },
+        "down_drivers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/driver"
+          }
+        },
+        "already_priced_in": {
+          "$ref": "#/$defs/string_list"
+        },
+        "invalidation_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "low_confidence_reasons": {
+          "$ref": "#/$defs/string_list"
+        }
       }
     }
   }

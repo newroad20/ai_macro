@@ -1,0 +1,52 @@
+{
+  "schema_version": "0.1",
+  "track": "A",
+  "trade_date": "2026-11-06",
+  "scheduled_at": "2026-11-06T08:30:00+09:00",
+  "captured_at": "2026-11-09T14:16:49+09:00",
+  "reports": [
+    {
+      "source": "daol",
+      "file": "다올투자증권_채권시황_DAOL Daily Bond Morning Brief_20261106.pdf",
+      "pdf_created_at": "2026-11-06T08:15:30+09:00",
+      "obtained_at": "2026-11-06T08:55:00+09:00"
+    },
+    {
+      "source": "eugene",
+      "file": "유진투자증권_채권전략_Eugenes FICC Update_20261106.pdf",
+      "pdf_created_at": "2026-11-06T08:39:52+09:00",
+      "obtained_at": "2026-11-06T08:55:00+09:00"
+    }
+  ],
+  "us_close": {
+    "as_of_date": "2026-11-05",
+    "sp500": {
+      "change_pct": -4.36
+    },
+    "nasdaq": {
+      "change_pct": -5.52
+    },
+    "ust10y": {
+      "change_bp": -5.2,
+      "yield": 4.837
+    }
+  },
+  "kr": {
+    "ktb3y_fut": {
+      "prev_close": 103.69,
+      "prev_change": 0.14
+    },
+    "ktb10y_fut": {
+      "prev_close": 109.19,
+      "prev_change": 0.69
+    },
+    "kospi200": {
+      "prev_close": 837.78
+    },
+    "usdkrw": {
+      "prev_close": 1342.1
+    }
+  },
+  "ktb_contract": "2612",
+  "note": "시험(A 트랙 전환 점검). 전일(11/05) 종가: 국채선물·환율은 리포트, KOSPI200은 11/06 종가 783.23과 -54.55p에서 역산. 미국 지수 등락률은 웹 보도(미확인), 미국채 10Y는 다올 11/06 리포트. 리포트 입수 시각이 컷오프 이후라 정식이었다면 late."
+}

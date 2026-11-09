@@ -1,69 +1,236 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Snapshot (예측 입력 시장 데이터, T 시각 기록)",
+  "title": "Snapshot (예측 입력 시장 데이터. A: 개장 전 전일 종가, B: T 시각 값)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "track", "trade_date", "scheduled_at", "captured_at", "reports", "us_close", "kr"],
+  "required": [
+    "schema_version",
+    "track",
+    "trade_date",
+    "scheduled_at",
+    "captured_at",
+    "reports",
+    "us_close",
+    "kr"
+  ],
   "$defs": {
-    "kst_datetime": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\+09:00$" },
-    "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "kst_datetime": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\+09:00$"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
     "us_index": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["change_pct"],
-      "properties": { "close": { "type": "number" }, "change_pct": { "type": "number", "description": "전일 대비 등락률(%)" } }
+      "required": [
+        "change_pct"
+      ],
+      "properties": {
+        "close": {
+          "type": "number"
+        },
+        "change_pct": {
+          "type": "number",
+          "description": "전일 대비 등락률(%)"
+        }
+      }
     },
     "kr_level": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["prev_close", "value_at_t"],
-      "properties": { "prev_close": { "type": "number" }, "value_at_t": { "type": "number" } }
+      "required": [
+        "prev_close"
+      ],
+      "properties": {
+        "prev_close": {
+          "type": "number",
+          "description": "D-1 종가"
+        },
+        "value_at_t": {
+          "type": "number",
+          "description": "B 트랙 전용: T 시각 값"
+        },
+        "prev_change": {
+          "type": "number",
+          "description": "A 트랙: D-1 종가 - D-2 종가 (가격 단위)"
+        }
+      }
     }
   },
   "properties": {
-    "schema_version": { "const": "0.1" },
-    "track": { "enum": ["B"] },
-    "trade_date": { "$ref": "#/$defs/date" },
-    "scheduled_at": { "$ref": "#/$defs/kst_datetime" },
-    "captured_at": { "$ref": "#/$defs/kst_datetime", "description": "스냅샷 값을 실제로 기록한 시각" },
+    "schema_version": {
+      "const": "0.1"
+    },
+    "track": {
+      "enum": [
+        "A",
+        "B"
+      ]
+    },
+    "trade_date": {
+      "$ref": "#/$defs/date"
+    },
+    "scheduled_at": {
+      "$ref": "#/$defs/kst_datetime"
+    },
+    "captured_at": {
+      "$ref": "#/$defs/kst_datetime",
+      "description": "스냅샷 값을 실제로 기록한 시각"
+    },
     "reports": {
       "type": "array",
       "minItems": 2,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["source", "file", "pdf_created_at", "obtained_at"],
+        "required": [
+          "source",
+          "file",
+          "pdf_created_at",
+          "obtained_at"
+        ],
         "properties": {
-          "source": { "enum": ["daol", "eugene"] },
-          "file": { "type": "string" },
-          "pdf_created_at": { "$ref": "#/$defs/kst_datetime", "description": "PDF 메타데이터 생성 시각" },
-          "obtained_at": { "$ref": "#/$defs/kst_datetime", "description": "사용자가 실제로 입수한 시각" }
+          "source": {
+            "enum": [
+              "daol",
+              "eugene"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "pdf_created_at": {
+            "$ref": "#/$defs/kst_datetime",
+            "description": "PDF 메타데이터 생성 시각"
+          },
+          "obtained_at": {
+            "$ref": "#/$defs/kst_datetime",
+            "description": "사용자가 실제로 입수한 시각"
+          }
         }
       }
     },
     "us_close": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["as_of_date", "sp500", "nasdaq"],
+      "required": [
+        "as_of_date",
+        "sp500",
+        "nasdaq"
+      ],
       "properties": {
-        "as_of_date": { "$ref": "#/$defs/date", "description": "직전 미국 거래일" },
-        "sp500": { "$ref": "#/$defs/us_index" },
-        "nasdaq": { "$ref": "#/$defs/us_index" },
-        "dow": { "$ref": "#/$defs/us_index" },
-        "vix": { "$ref": "#/$defs/us_index" }
+        "as_of_date": {
+          "$ref": "#/$defs/date",
+          "description": "직전 미국 거래일"
+        },
+        "sp500": {
+          "$ref": "#/$defs/us_index"
+        },
+        "nasdaq": {
+          "$ref": "#/$defs/us_index"
+        },
+        "dow": {
+          "$ref": "#/$defs/us_index"
+        },
+        "vix": {
+          "$ref": "#/$defs/us_index"
+        },
+        "ust10y": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "change_bp"
+          ],
+          "properties": {
+            "yield": {
+              "type": "number"
+            },
+            "change_bp": {
+              "type": "number",
+              "description": "직전 미국 세션 1일 변화(bp)"
+            }
+          }
+        }
       }
     },
     "kr": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ktb3y_fut", "ktb10y_fut", "kospi200", "usdkrw"],
+      "required": [
+        "ktb3y_fut",
+        "ktb10y_fut",
+        "kospi200",
+        "usdkrw"
+      ],
       "properties": {
-        "ktb3y_fut": { "$ref": "#/$defs/kr_level" },
-        "ktb10y_fut": { "$ref": "#/$defs/kr_level" },
-        "kospi200": { "$ref": "#/$defs/kr_level" },
-        "usdkrw": { "$ref": "#/$defs/kr_level" }
+        "ktb3y_fut": {
+          "$ref": "#/$defs/kr_level"
+        },
+        "ktb10y_fut": {
+          "$ref": "#/$defs/kr_level"
+        },
+        "kospi200": {
+          "$ref": "#/$defs/kr_level"
+        },
+        "usdkrw": {
+          "$ref": "#/$defs/kr_level"
+        }
       }
     },
-    "note": { "type": "string" }
-  }
+    "note": {
+      "type": "string"
+    },
+    "ktb_contract": {
+      "type": "string",
+      "pattern": "^\\d{4}$",
+      "description": "국채선물 월물 YYMM (예: 2612)"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "track": {
+            "const": "B"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "kr": {
+            "additionalProperties": {
+              "required": [
+                "prev_close",
+                "value_at_t"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "track": {
+            "const": "A"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "us_close": {
+            "required": [
+              "as_of_date",
+              "sp500",
+              "nasdaq",
+              "ust10y"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }
