@@ -12,6 +12,8 @@ A 트랙 — 2단계 (설정 judge_mode = two_stage)
   python judge_rationale.py 2026-11-06 --dry-run          # 시험 -> 05_평가결과/A/dryrun/
   결과: 05_평가결과/A/rationale/<날짜>.blind.json, <날짜>.outcome.json
 
+비교군 (예: 뉴스): --arm news  -> 05_평가결과/A/arms/news/rationale/ (뉴스 원문도 채점 폴더에 넣음)
+
 채점 신뢰도 점검
   python judge_rationale.py 2026-11-10 --stage blind --variant r2   # 같은 예측 재채점 -> <날짜>.blind.r2.json
   사람 채점: 05_평가결과/A/human/<날짜>.json  {"scorer": "...", "scores": {"evidence_fidelity": 4, ...}, "note": "..."}
@@ -63,7 +65,7 @@ def evidence_stats(checks):
             "error_rate": round(len(bad) / len(counted), 3) if counted else None}
 
 
-def run_session(files, prompt_path, schema, user_msg, jcfg, track, date, label, dry):
+def run_session(files, prompt_path, schema, user_msg, jcfg, track, date, label, dry, arm=None):
     """files: {작업폴더 파일명: (원본 경로 | dict)} -> (structured_output | None, 실행 요약)"""
     started = cm.kst_now()
     stamp = started.strftime("%Y%m%dT%H%M%S")
@@ -76,11 +78,12 @@ def run_session(files, prompt_path, schema, user_msg, jcfg, track, date, label, 
             else:
                 if not Path(src).exists():
                     fail(f"파일 없음: {src}")
+                (work / name).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(src, work / name)
         cmd = ["claude", "-p", "--safe-mode", "--no-session-persistence", "--tools", "Read",
                "--model", jcfg["model"], "--output-format", "stream-json", "--verbose",
                "--system-prompt", prompt_path.read_text(encoding="utf-8"), "--json-schema", json.dumps(schema)]
-        print(f"[채점:{label}] track={track} model={jcfg['model']} prompt={prompt_version} date={date}"
+        print(f"[채점:{label}] track={track}{'' if arm in (None, cm.BASE_ARM) else ' arm=' + arm} model={jcfg['model']} prompt={prompt_version} date={date}"
               f"{' (시험)' if dry else ''}  입력: {', '.join(files)}")
         for attempt in (1, 2):  # 채점은 예측이 아니므로, 출력 형식 실패(구조화 출력 없음)에 한해 1회 재시도
             try:
@@ -96,7 +99,8 @@ def run_session(files, prompt_path, schema, user_msg, jcfg, track, date, label, 
 
     log_dir = ROOT / "99_로그" / "runs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    raw_log = log_dir / f"{date}_{track}_judge-{label}_{stamp}.jsonl"
+    arm_part = "" if arm in (None, cm.BASE_ARM) else f"_{arm}"
+    raw_log = log_dir / f"{date}_{track}{arm_part}_judge-{label}_{stamp}.jsonl"
     raw_log.write_text(proc.stdout, encoding="utf-8")
     init, result = rp.parse_events(proc.stdout)
     status, detail, out = "ok", "", None
@@ -109,7 +113,7 @@ def run_session(files, prompt_path, schema, user_msg, jcfg, track, date, label, 
         errs = schema_errors(schema, out)
         if errs:
             status, detail, out = "invalid", "; ".join(errs), None
-    run = {"date": date, "track": track, "kind": f"judge-{label}", "dry_run": dry, "status": status,
+    run = {"date": date, "track": track, "arm": arm or cm.BASE_ARM, "kind": f"judge-{label}", "dry_run": dry, "status": status,
            "model_id": init.get("model"), "prompt_version": prompt_version, "executed_at": cm.kst_str(started),
            "cost_usd": result.get("total_cost_usd"), "duration_ms": result.get("duration_ms"), "detail": detail,
            "raw_log": str(raw_log.relative_to(ROOT))}
@@ -129,45 +133,49 @@ def save(obj, path):
 
 # ---------------- A 트랙: 2단계 ----------------
 
-def stage_paths(track, date, dry, variant):
-    d = cm.eval_dir(track) / ("dryrun" if dry else "rationale")
+def stage_paths(track, date, dry, variant, arm=None):
+    d = cm.eval_dir(track, arm) / ("dryrun" if dry else "rationale")
     suf = f".{variant}" if variant else ""
     return d / f"{date}.blind{suf}.json", d / f"{date}.outcome{suf}.json"
 
 
-def prediction_for(track, date, dry):
+def prediction_for(track, date, dry, arm=None):
     if dry:
-        preds = sorted(cm.dryrun_log_dir(track).glob(f"{date}_*.prediction.json"))
-        if not preds:
-            fail(f"시험 예측 없음: {cm.dryrun_log_dir(track)}/{date}_*.prediction.json")
-        return load_json(preds[-1])
-    return ev.find_prediction(track, date)[0]
+        return ev.dryrun_paths(track, date, arm)[0]
+    return ev.find_prediction(track, date, arm)[0]
 
 
-def meta(track, date, stage, run, pred, variant):
-    return {"schema_version": "0.2", "track": track, "trade_date": date, "stage": stage,
+def meta(track, date, stage, run, pred, variant, arm=None):
+    return {"schema_version": "0.2", "track": track, "arm": arm or cm.BASE_ARM, "trade_date": date, "stage": stage,
             "variant": variant or "main", "judge_prompt_version": run["prompt_version"],
             "judge_model_id": run["model_id"], "judged_at": run["executed_at"],
             "prediction_executed_at": pred["executed_at"], "cost_usd": run["cost_usd"]}
 
 
-def run_blind(track, date, dry, variant, force, jcfg, files_cfg):
-    blind_p, _ = stage_paths(track, date, dry, variant)
+def run_blind(track, date, dry, variant, force, jcfg, files_cfg, arm=None, news_profiles=None, cutoff=None):
+    blind_p, _ = stage_paths(track, date, dry, variant, arm)
     if blind_p.exists() and not force:
         print(f"[1단계] 이미 있음 -> 재사용: {blind_p.relative_to(ROOT)}")
         return load_json(blind_p)
-    pred = prediction_for(track, date, dry)
+    pred = prediction_for(track, date, dry, arm)
     snap_p = cm.snapshot_path(track, date, dry)
     snap = load_json(snap_p)
     files = {"prediction.json": pred, "snapshot.json": snap_p}
     for r in snap["reports"]:
-        files[f"report_{r['source']}.pdf"] = ROOT / "01_리서치_원본" / date / r["file"]
+        files[f"report_{r['source']}.pdf"] = cm.research_dir(date) / r["file"]
     answer_existed = cm.answer_path(track, date, dry).exists()
-    out, run = run_session(files, CODE / files_cfg["blind"], strip_schema("judgment_blind.schema.json"),
-                           "작업 폴더의 prediction.json, snapshot.json, report_daol.pdf, report_eugene.pdf를 읽고 "
-                           "지침에 따라 1단계 채점 결과를 JSON으로 출력하세요.",
-                           jcfg, track, date, "blind", dry)
-    obj = {**meta(track, date, "blind", run, pred, variant), "answer_existed_at_judging": answer_existed,
+    msg = "작업 폴더의 prediction.json, snapshot.json, report_daol.pdf, report_eugene.pdf를 읽고 "
+    with tempfile.TemporaryDirectory(prefix="ai_macro_news_") as news_tmp:
+        if news_profiles:  # 예측 때와 같은 규칙으로 뉴스 패키지를 다시 만든다 (같은 기사 ID bond_NN 등)
+            info = rp.build_news(date, news_profiles, cutoff, Path(news_tmp))
+            for p in sorted((Path(news_tmp) / "news").glob("*")):
+                files[f"news/{p.name}"] = p
+            msg = (f"작업 폴더의 prediction.json, snapshot.json, report_daol.pdf, report_eugene.pdf, news/INDEX.md "
+                   f"(뉴스 {info['included']}건), news/ 의 관점별 원문 파일을 읽고 ")
+        out, run = run_session(files, CODE / files_cfg["blind"], strip_schema("judgment_blind.schema.json"),
+                               msg + "지침에 따라 1단계 채점 결과를 JSON으로 출력하세요.",
+                               jcfg, track, date, "blind", dry, arm)
+    obj = {**meta(track, date, "blind", run, pred, variant, arm), "answer_existed_at_judging": answer_existed,
            "answer_shown": False, **out}
     save(obj, blind_p)
     st, sc = evidence_stats(out["evidence_checks"]), out["scores"]
@@ -184,18 +192,18 @@ def run_blind(track, date, dry, variant, force, jcfg, files_cfg):
     return obj
 
 
-def run_outcome(track, date, dry, variant, force, jcfg, files_cfg):
-    blind_p, out_p = stage_paths(track, date, dry, variant)
+def run_outcome(track, date, dry, variant, force, jcfg, files_cfg, arm=None):
+    blind_p, out_p = stage_paths(track, date, dry, variant, arm)
     if out_p.exists() and not force:
         fail(f"이미 2단계 결과가 있음: {out_p} (재판정은 --force)")
     if not blind_p.exists():
         fail(f"1단계 결과 없음: {blind_p}. 먼저 --stage blind")
     ans_p = cm.answer_path(track, date, dry)
-    num_p = cm.eval_dir(track) / ("dryrun" if dry else "") / f"{date}.json"
+    num_p = cm.eval_dir(track, arm) / ("dryrun" if dry else "") / f"{date}.json"
     for p in (ans_p, num_p):
         if not p.exists():
             fail(f"파일 없음: {p}  (정답 기록과 evaluate.py 실행이 먼저 필요)")
-    pred = prediction_for(track, date, dry)
+    pred = prediction_for(track, date, dry, arm)
     blind = load_json(blind_p)
     blind_core = {k: v for k, v in blind.items() if k in
                   ("evidence_checks", "invalidation_observability", "reasoning_review", "analyst_dependence", "scores")}
@@ -204,8 +212,8 @@ def run_outcome(track, date, dry, variant, force, jcfg, files_cfg):
     out, run = run_session(files, CODE / files_cfg["outcome"], strip_schema("judgment_outcome.schema.json"),
                            "작업 폴더의 prediction.json, snapshot.json, answer.json, numeric_eval.json, blind_judgment.json을 "
                            "읽고 지침에 따라 2단계 판정 결과를 JSON으로 출력하세요.",
-                           jcfg, track, date, "outcome", dry)
-    obj = {**meta(track, date, "outcome", run, pred, variant), "answer_shown": True,
+                           jcfg, track, date, "outcome", dry, arm)
+    obj = {**meta(track, date, "outcome", run, pred, variant, arm), "answer_shown": True,
            "blind_file": blind_p.name, **out}
     save(obj, out_p)
     trig = {t["triggered"] for t in out["invalidation_triggered"]}
@@ -216,10 +224,10 @@ def run_outcome(track, date, dry, variant, force, jcfg, files_cfg):
     print(f"  비용(표시값) ${run['cost_usd']}, {run['duration_ms']}ms")
 
 
-def agreement(track, dry):
+def agreement(track, dry, arm=None):
     """같은 날짜의 기본 채점과 재채점(variant)·사람 점수의 점수 차이를 요약한다."""
-    d = cm.eval_dir(track) / ("dryrun" if dry else "rationale")
-    human_d = cm.eval_dir(track) / "human"
+    d = cm.eval_dir(track, arm) / ("dryrun" if dry else "rationale")
+    human_d = cm.eval_dir(track, arm) / "human"
     rows = []
     for main in sorted(d.glob("????-??-??.blind.json")):
         date = main.name[:10]
@@ -294,22 +302,29 @@ def main():
     ap.add_argument("--agreement", action="store_true", help="재채점·사람 점수와의 차이 요약")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="기존 채점 결과 덮어쓰기")
+    ap.add_argument("--arm", default=cm.BASE_ARM, help="비교군 (기본 base, 예: news)")
     args = ap.parse_args()
+    cfg = cm.config()
+    tcfg = cm.track_cfg(cfg, args.track)
+    acfg = cm.arm_cfg(tcfg, args.arm)
     if args.agreement:
-        return agreement(args.track, args.dry_run)
+        return agreement(args.track, args.dry_run, args.arm)
     if not args.date:
         ap.error("날짜 또는 --agreement 필요")
 
-    cfg = cm.config()
-    tcfg = cm.track_cfg(cfg, args.track)
     jcfg = {**DEFAULT_JUDGE, **cfg.get("judge", {})}
     if tcfg.get("judge_mode") != "two_stage":
+        if acfg is not None:
+            fail("비교군 채점은 2단계 채점 트랙(A)에서만 지원")
         return run_legacy(args.track, args.date, args.dry_run, args.force, jcfg, tcfg["judge_prompt_file"])
-    files_cfg = tcfg["judge_prompt_files"]
+    files_cfg = (acfg or {}).get("judge_prompt_files") or tcfg["judge_prompt_files"]
+    news_profiles = (acfg or {}).get("news_profiles")
+    cutoff = cm.at_time(args.date, tcfg["cutoff_time_kst"])
     if args.stage in ("all", "blind"):
-        run_blind(args.track, args.date, args.dry_run, args.variant, args.force and args.stage == "blind", jcfg, files_cfg)
+        run_blind(args.track, args.date, args.dry_run, args.variant, args.force and args.stage == "blind", jcfg,
+                  files_cfg, args.arm, news_profiles, cutoff)
     if args.stage in ("all", "outcome"):
-        run_outcome(args.track, args.date, args.dry_run, args.variant, args.force, jcfg, files_cfg)
+        run_outcome(args.track, args.date, args.dry_run, args.variant, args.force, jcfg, files_cfg, args.arm)
 
 
 if __name__ == "__main__":

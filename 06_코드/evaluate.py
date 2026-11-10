@@ -4,7 +4,11 @@
   python evaluate.py 2026-11-10                 # 하루 평가 -> 05_평가결과/A/<날짜>.json
   python evaluate.py 2026-11-06 --dry-run       # 시험 -> 05_평가결과/A/dryrun/<날짜>.json
   python evaluate.py --summary                  # 누적 성과 (정시 표본과 late 분리)
+  python evaluate.py --sources [--dry-run]      # 근거 출처 분포 (daol/eugene/미국 등, 정답 전에도 가능)
   python evaluate.py 2026-11-09 --track B --dry-run
+  python evaluate.py 2026-11-11 --arm news      # 비교군 평가 -> 05_평가결과/A/arms/news/<날짜>.json
+  python evaluate.py --summary --arm news       # 비교군 누적 성과
+  python evaluate.py --compare [--dry-run]      # 기본 예측 vs 비교군, 둘 다 평가된 날짜만
 
 주 지표 (사전 고정, 00_통합기획안 v0.3 §5, 설정 scoring_rule):
   10년 국채선물 단일 타깃.
@@ -57,36 +61,48 @@ def score_signal(direction, actual_ticks, actual_dir):
             "ticks_gained": round(SIGN[direction] * actual_ticks, 2)}
 
 
-def find_prediction(track, date):
-    base = cm.prediction_dir(track)
+def rationale_sources(pred):
+    """근거(up/down_drivers)의 출처별 개수. 정답과 무관한 기술 통계."""
+    out = {}
+    for side in ("up_drivers", "down_drivers"):
+        for d in pred.get("rationale", {}).get(side, []):
+            src = d.get("source", "unknown")
+            out.setdefault(src, {"up": 0, "down": 0})
+            out[src][side.split("_")[0]] += 1
+    return out
+
+
+def find_prediction(track, date, arm=None):
+    base = cm.prediction_dir(track, arm)
     for d, late in ((base, False), (base / "late", True)):
         if (d / f"{date}.json").exists():
             return load_json(d / f"{date}.json"), late
     fail(f"예측 파일 없음: {base}/<late>/{date}.json")
 
 
-def dryrun_paths(track, date):
-    """(최신 시험 예측, late, 스냅샷 경로, 정답 경로, 평가 결과 경로)"""
-    preds = sorted(cm.dryrun_log_dir(track).glob(f"{date}_*.prediction.json"))
+def dryrun_paths(track, date, arm=None):
+    """(최신 시험 예측, late, 스냅샷 경로, 정답 경로, 평가 결과 경로). 스냅샷·정답은 비교군과 공유."""
+    d = cm.dryrun_log_dir(track, arm)
+    preds = sorted(d.glob(f"{date}_*.prediction.json"))
     if not preds:
-        fail(f"시험 예측 없음: {cm.dryrun_log_dir(track)}/{date}_*.prediction.json")
+        fail(f"시험 예측 없음: {d}/{date}_*.prediction.json")
     return (load_json(preds[-1]), False, cm.snapshot_path(track, date, True),
-            cm.answer_path(track, date, True), cm.eval_dir(track) / "dryrun" / f"{date}.json")
+            cm.answer_path(track, date, True), cm.eval_dir(track, arm) / "dryrun" / f"{date}.json")
 
 
-def official_paths(track, date):
-    pred, late = find_prediction(track, date)
+def official_paths(track, date, arm=None):
+    pred, late = find_prediction(track, date, arm)
     return (pred, late, cm.snapshot_path(track, date), cm.answer_path(track, date),
-            cm.eval_dir(track) / f"{date}.json")
+            cm.eval_dir(track, arm) / f"{date}.json")
 
 
-def evaluate_day(track, date, force=False, dry=False):
+def evaluate_day(track, date, force=False, dry=False, arm=None):
     cfg = cm.config()
     tcfg = cm.track_cfg(cfg, track)
     band = cm.neutral_band(tcfg, dry)
     tick10, tick3 = cfg["tick_size"]["ktb10y_fut"], cfg["tick_size"]["ktb3y_fut"]
 
-    pred, is_late, snap_p, ans_p, out = (dryrun_paths if dry else official_paths)(track, date)
+    pred, is_late, snap_p, ans_p, out = (dryrun_paths if dry else official_paths)(track, date, arm)
     if out.exists() and not force:
         fail(f"이미 평가 결과가 있음: {out} (재평가는 --force)")
     for p in (snap_p, ans_p):
@@ -167,7 +183,8 @@ def evaluate_day(track, date, force=False, dry=False):
                 "sign_match": None if pred_dir == "neutral" or actual == 0 else (SIGN[pred_dir] > 0) == (actual > 0)}
 
     result = {
-        "eval_version": EVAL_VERSION, "track": track, "trade_date": date, "late": is_late, "dry_run": dry,
+        "eval_version": EVAL_VERSION, "track": track, "arm": arm or cm.BASE_ARM, "trade_date": date,
+        "late": is_late, "dry_run": dry,
         "evaluated_at": cm.kst_str(cm.kst_now()),
         "model_id": pred["model_id"], "prompt_version": pred["prompt_version"],
         "neutral_band_ticks": band,
@@ -181,6 +198,7 @@ def evaluate_day(track, date, force=False, dry=False):
             "open_gap": gap,
         },
         "signals": signals,
+        "rationale_sources": rationale_sources(pred),
         "secondary": {
             "ktb3y_fut_ticks": sec(s["ktb3y_fut"]["direction"], s["ktb3y_fut"]["expected_ticks"], act3),
             "kospi200_return_pct": sec(s["kospi200"]["direction"], s["kospi200"]["expected_return_pct"], k200_ret),
@@ -193,7 +211,7 @@ def evaluate_day(track, date, force=False, dry=False):
 
     pr = result["primary"]
     pre_txt = "없음" if pre10 is None else f"{pre10:+}"
-    print(f"[평가] {track} {date}{' (late)' if is_late else ''}{' (시험)' if dry else ''}  10Y선물 직전 {pre_txt} 틱 / "
+    print(f"[평가] {track}{'' if arm in (None, cm.BASE_ARM) else ' arm=' + arm} {date}{' (late)' if is_late else ''}{' (시험)' if dry else ''}  10Y선물 직전 {pre_txt} 틱 / "
           f"실제 {act10:+} 틱 ({act10_dir}, 중립 ±{band})")
     ai = signals["ai"]
     print(f"  AI: {pr['pred_direction']} {pr['pred_ticks']:+} 틱 ({pr['confidence']}) -> "
@@ -210,15 +228,16 @@ def evaluate_day(track, date, force=False, dry=False):
     return result
 
 
-def summary(track):
-    d = cm.eval_dir(track)
+def summary(track, arm=None):
+    d = cm.eval_dir(track, arm)
     rows = [load_json(p) for p in sorted(d.glob("????-??-??.json"))] if d.exists() else []
+    name = track if arm in (None, cm.BASE_ARM) else f"{track} arm={arm}"
     if not rows:
-        fail(f"{track} 평가 결과 없음")
+        fail(f"{name} 평가 결과 없음")
     for label, group in (("정시", [r for r in rows if not r["late"]]), ("late", [r for r in rows if r["late"]])):
         if not group:
             continue
-        print(f"\n== {track} {label} 표본 {len(group)}일 ({group[0]['trade_date']} ~ {group[-1]['trade_date']}) ==")
+        print(f"\n== {name} {label} 표본 {len(group)}일 ({group[0]['trade_date']} ~ {group[-1]['trade_date']}) ==")
         table = {n: [r["signals"][n] for r in group if n in r["signals"]]
                  for n in sorted({k for r in group for k in r["signals"]}, key=lambda k: (k != "ai", k))}
         for name, dirn in (("always_up", "up"), ("always_down", "down")):
@@ -253,6 +272,88 @@ def summary(track):
                   "(20일 중 14일 적중도 동전 던지기로 나올 확률 약 6%)")
 
 
+def sources(track, dry, arm=None):
+    """날짜별·누적 근거 출처 분포. 예측 파일만 읽으므로 정답 전에도 실행 가능."""
+    preds = {}
+    if dry:
+        for p in sorted(cm.dryrun_log_dir(track, arm).glob("????-??-??_*.prediction.json")):
+            preds[p.name[:10]] = (load_json(p), False)  # 날짜별 최신 시험 예측
+    else:
+        base = cm.prediction_dir(track, arm)
+        for d, late in ((base, False), (base / "late", True)):
+            for p in sorted(d.glob("????-??-??.json")) if d.exists() else []:
+                preds[p.stem] = (load_json(p), late)
+    if not preds:
+        fail(f"{track} 예측 파일 없음{' (시험)' if dry else ''}")
+
+    srcs = sorted({s for pr, _ in preds.values() for s in rationale_sources(pr)})
+    total = {s: {"up": 0, "down": 0} for s in srcs}
+    print(f"== {track} 근거 출처 분포{' (시험)' if dry else ''} {len(preds)}일 ==  (칸: 상승근거/하락근거)")
+    print(f"  {'날짜':<12}{'방향':<9}" + "".join(f"{s:>12}" for s in srcs))
+    for date, (pr, late) in sorted(preds.items()):
+        rs = rationale_sources(pr)
+        for s, c in rs.items():
+            total[s]["up"] += c["up"]
+            total[s]["down"] += c["down"]
+        cells = "".join(f"{(str(rs[s]['up']) + '/' + str(rs[s]['down'])) if s in rs else '-':>12}" for s in srcs)
+        print(f"  {date + ('*' if late else ''):<12}{pr['primary']['direction']:<9}{cells}")
+    n_all = sum(c["up"] + c["down"] for c in total.values())
+    print(f"  {'누적':<21}" + "".join(f"{str(total[s]['up']) + '/' + str(total[s]['down']):>12}" for s in srcs))
+    print(f"  {'비중':<21}" + "".join(f"{(total[s]['up'] + total[s]['down']) / n_all:>12.0%}" for s in srcs))
+    rep = {s: total[s]["up"] + total[s]["down"] for s in ("daol", "eugene") if s in total}
+    if sum(rep.values()):
+        print("  리포트 간 비중: " + " / ".join(f"{s} {v / sum(rep.values()):.0%}" for s, v in rep.items()))
+    print("  * = late. 출처는 예측 세션이 스스로 표기한 값 (채점에서 오독 판정된 근거도 포함).")
+
+
+def compare(track, dry):
+    """기본 예측과 각 비교군을 같은 날짜끼리 비교한다 (둘 다 평가된 날짜만, 정시 표본만)."""
+    tcfg = cm.track_cfg(cm.config(), track)
+    arms = [a for a in cm.arm_names(tcfg) if a != cm.BASE_ARM]
+    if not arms:
+        fail(f"{track} 트랙에 비교군이 없음")
+    sub = "dryrun" if dry else ""
+
+    def load(arm):
+        d = cm.eval_dir(track, arm) / sub
+        rows = {p.stem: load_json(p) for p in sorted(d.glob("????-??-??.json"))} if d.exists() else {}
+        return {k: v for k, v in rows.items() if not v["late"]}
+
+    base = load(cm.BASE_ARM)
+    for arm in arms:
+        other = load(arm)
+        dates = sorted(set(base) & set(other))
+        print(f"\n== {track} 기본(base) vs {arm}{' (시험)' if dry else ''}: 공통 {len(dates)}일 "
+              f"(base만 {len(set(base) - set(other))}일, {arm}만 {len(set(other) - set(base))}일 제외) ==")
+        if not dates:
+            continue
+        print(f"  {'날짜':<12}{'실제 틱':>8}  {'base':<16}{arm:<16}")
+        tot = {cm.BASE_ARM: [], arm: []}
+        same = 0
+        for dt in dates:
+            b, o = base[dt], other[dt]
+            act = b["primary"]["actual_ticks"]
+            cells = []
+            for r, key in ((b, cm.BASE_ARM), (o, arm)):
+                sig = r["signals"]["ai"]
+                tot[key].append(sig)
+                mark = "-" if not sig["signal"] else ("·" if sig["hit"] is None else "O" if sig["hit"] else "X")
+                cells.append(f"{r['primary']['pred_direction']} {mark} {sig['ticks_gained']:+.0f}")
+            same += b["primary"]["pred_direction"] == o["primary"]["pred_direction"]
+            print(f"  {dt:<12}{act:>+8.0f}  {cells[0]:<16}{cells[1]:<16}")
+        for key, sig in tot.items():
+            fired = [x for x in sig if x["signal"]]
+            judged = [x for x in fired if x["hit"] is not None]
+            hits = sum(1 for x in judged if x["hit"])
+            total = sum(x["ticks_gained"] for x in sig)
+            rate = f"{hits / len(judged):.0%}" if judged else "-"
+            per = f"{total / len(fired):+.1f}" if fired else "-"
+            print(f"  {key:<8} 신호 {len(fired)} / 판정 {len(judged)} / 적중 {hits} ({rate}) / 신호당 {per} 틱 / 누적 {total:+.1f} 틱")
+        print(f"  방향 일치 {same}/{len(dates)}일  (O 적중, X 실패, · 실제 중립, - 신호 없음)")
+        if len(dates) < 30:
+            print("  ※ 공통 표본이 적어 차이에 대한 결론을 내지 않음")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("date", nargs="?", help="거래일 YYYY-MM-DD")
@@ -260,11 +361,19 @@ def main():
     ap.add_argument("--summary", action="store_true", help="누적 성과 출력")
     ap.add_argument("--force", action="store_true", help="기존 평가 결과 덮어쓰기 (평가 코드 수정 시)")
     ap.add_argument("--dry-run", action="store_true", help="시험 실행 평가 (결과: 05_평가결과/<트랙>/dryrun/)")
+    ap.add_argument("--sources", action="store_true", help="근거 출처 분포 (예측 파일만 사용, 정답 전에도 가능)")
+    ap.add_argument("--arm", default=cm.BASE_ARM, help="비교군 (기본 base, 예: news)")
+    ap.add_argument("--compare", action="store_true", help="기본 예측 vs 비교군 (같은 날짜끼리)")
     args = ap.parse_args()
-    if args.summary:
-        summary(args.track)
+    cm.arm_cfg(cm.track_cfg(cm.config(), args.track), args.arm)  # 이름 검사
+    if args.compare:
+        compare(args.track, args.dry_run)
+    elif args.sources:
+        sources(args.track, args.dry_run, args.arm)
+    elif args.summary:
+        summary(args.track, args.arm)
     elif args.date:
-        evaluate_day(args.track, args.date, args.force, args.dry_run)
+        evaluate_day(args.track, args.date, args.force, args.dry_run, args.arm)
     else:
         ap.error("날짜 또는 --summary 필요")
 

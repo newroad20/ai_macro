@@ -1,0 +1,109 @@
+{
+  "schema_version": "0.2",
+  "track": "A",
+  "trade_date": "2026-11-10",
+  "stage": "blind",
+  "variant": "main",
+  "judge_prompt_version": "A_blind_v2.0",
+  "judge_model_id": "claude-opus-5",
+  "judged_at": "2026-11-10T09:04:12+09:00",
+  "prediction_executed_at": "2026-11-10T09:02:55+09:00",
+  "cost_usd": 0.3468475,
+  "answer_existed_at_judging": false,
+  "answer_shown": false,
+  "evidence_checks": [
+    {
+      "side": "up",
+      "factor": "유가 급락·중동 긴장 완화로 인플레 우려 완화",
+      "claimed": "WTI -4.9%, 트럼프 대이란 재공격 가능성 매우 낮다고 발언 (유진)",
+      "verdict": "correct",
+      "source_value": "유진 p.2 FX&Commodity 표: WTI 근월물 86.41, 1D -4.9%. 유진 p.1 전망 코멘트 및 p.2 '달러 지수 동향': '트럼프 대통령이 대이란 군사공격 재개에 대해 그럴 필요가 있을 가능성이 매우 작다고 발언'",
+      "note": "수치·인용 모두 원문과 일치"
+    },
+    {
+      "side": "up",
+      "factor": "원/달러 하락과 외국인 국채선물 매수",
+      "claimed": "원/달러 1,347.10 -0.7%, 외국인 LKTB +171 (유진 표 1D)",
+      "verdict": "misread",
+      "source_value": "원/달러: 유진 p.2 표 1,347.10, 1D -0.7% (일치). 그러나 '171.0'은 유진 p.1 Fixed Income 표의 '10년 국채선물(LKTB)' 행의 1W 열 값(틱 변동, 1D는 2.0)이며 외국인 수급 수치가 아님. 외국인 LKTB 순매수는 그림(누적순매수)으로만 제시되고 수치 없음",
+      "note": "열(1D→1W) 오독 + 항목 성격 오독(선물 틱 변동을 외국인 계약수로 해석). 다만 '외국인 국채선물 순매수 확대'라는 정성 서술은 유진 국내 동향 코멘트에 존재"
+    },
+    {
+      "side": "up",
+      "factor": "국내 금리 1개월 큰 폭 하락 후 되돌림 여부",
+      "claimed": "국고 10Y 1M -55.5bp (다올 표)",
+      "verdict": "correct",
+      "source_value": "다올 KR Bond 표 국고10Y: YTM 3.857, 1D 0.2, 1W -18.3, 1M -55.5",
+      "note": "행·열 모두 일치"
+    },
+    {
+      "side": "down",
+      "factor": "미 금리 소폭 상승과 위험선호",
+      "claimed": "UST10Y +2.0bp(4.88%), S&P500 +2.35%, Nasdaq +2.74%",
+      "verdict": "correct",
+      "source_value": "snapshot.us_close: ust10y change_bp 2.0 / yield 4.88, sp500 +2.35%, nasdaq +2.74%. (참고: 유진 표는 미국채 10년 4.886%, 1D 2.6bp로 소폭 상이)",
+      "note": "snapshot 기준 일치. 유진 표와 0.6bp 차이가 있으나 출처를 us_market으로 명시해 허용 범위"
+    },
+    {
+      "side": "down",
+      "factor": "미 3년물 입찰 부진 및 CPI 경계",
+      "claimed": "국채 3년물 입찰 부진, 10월 CPI 발표 예정 (유진)",
+      "verdict": "correct",
+      "source_value": "유진 p.1 전망 코멘트: '익일 공개될 10월 CPI를 앞둔 경계심도 함께 작용했으며 국채 3년물 입찰도 부진하게 진행되자 금리는 단기물을 중심으로 상승세 확대'; p.2 '금일 美 10월 소비자물가지수 발표'",
+      "note": "원문 서술과 일치"
+    },
+    {
+      "side": "down",
+      "factor": "국내 증시 반등 가능성",
+      "claimed": "KOSPI 전일 -0.81%, 미 증시 급등 (다올·snapshot)",
+      "verdict": "correct",
+      "source_value": "다올 KR Stock 표: KOSPI 1D -0.81 (1W -14.34, 1M -24.25). 미 증시는 snapshot us_close",
+      "note": "행·열 일치"
+    }
+  ],
+  "invalidation_observability": [
+    {
+      "condition": "10년 국채선물 종가가 전일 종가 대비 +17틱 이상 (109.56 이상)",
+      "observable": true,
+      "reason": "10년 국채선물 당일 종가만으로 판정 가능. 기준값 계산(109.39+0.17=109.56)도 snapshot prev_close와 정합. 다만 중립·low confidence 예측에 ±17틱은 매우 넓은 밴드여서 예측 논리를 실질적으로 시험하지 못함"
+    },
+    {
+      "condition": "10년 국채선물 종가가 전일 종가 대비 -17틱 이하 (109.22 이하)",
+      "observable": true,
+      "reason": "종가만으로 판정 가능(109.39-0.17=109.22). 역시 밴드 폭이 과도해 -2틱 중립 전망의 반증력이 약함"
+    },
+    {
+      "condition": "원/달러 종가가 전일 대비 +10원 이상",
+      "observable": true,
+      "reason": "원/달러 당일 종가로 판정 가능. 야간 1,340원 반영 전제(원화 강세→금리 하락 지지)를 시험한다는 점에서 유용성은 있으나 +10원은 기준이 느슨함"
+    }
+  ],
+  "reasoning_review": {
+    "magnitude_compared": true,
+    "probability_consistent": false,
+    "issues": [
+      "상·하 요인 크기 비교가 '미 금리 +2bp는 작다'는 수준에 머물고, 유가 -4.9%·증시 +2.35~2.74%라는 큰 위험선호 재료와 금리 요인의 상대 크기를 틱 단위로 환산·비교하지 않음",
+      "prob up 0.2 / down 0.2로 완전 대칭인데 expected_ticks는 -2로 하방 치우침 — 확률 분포와 기대값이 서로 어긋남",
+      "10년 선물 ±17틱 무효화 밴드는 expected_ticks -2, confidence low와 정합성이 낮음(사실상 거의 무효화되지 않는 조건)",
+      "already_priced_in에 '중동 긴장 완화에 따른 유가 급락'을 포함했으나, 유진 리포트상 유가 급락·증시 급등·미 금리 등락은 11/9 미국 세션(= D-1 국내 마감 이후) 재료임. D-1 국내장은 직전 미국 고용지표 서프라이즈를 반영한 약세였으므로, 간밤 재료는 아직 미반영으로 보는 것이 자연스러움 — 선반영 판단이 과도함",
+      "snapshot의 3년 선물 prev_change 0.0과 리포트의 KTBF 3Y 1D -4.0틱(다올·유진 공통), 3년 선물 종가 103.85 vs 103.81의 불일치를 점검하지 않고 snapshot 값을 그대로 already_priced_in에 기재",
+      "USD/KRW 야간 1,340원(종가 대비 약 -7원)을 선반영 요소로 적으면서 당일 기대 변화는 -1.5원으로 제시 — 전제와 기대값의 연결 설명이 없음",
+      "CPI 대기 관망으로 변동성 제한이라는 결론 자체는 합리적이나, 동일 논리라면 KOSPI200 +0.6%라는 비교적 공격적인 수치와의 일관성 설명이 부족"
+    ],
+    "explanation": "방향(중립)과 low confidence 설정은 상충 재료(유가 급락 vs 위험선호·CPI 대기) 구도상 무리가 없고, 미 금리 변동이 작다는 크기 판단도 근거가 있다. 다만 확률 대칭 vs 기대 틱 음수, 과도하게 넓은 무효화 밴드, 간밤 재료의 선반영 여부에 대한 시점 오판 등 정합성 문제가 복수 존재한다."
+  },
+  "analyst_dependence": {
+    "level": "high",
+    "independent_insights": [
+      "간밤 미 금리 변화(+2bp)의 '크기'를 유가 급락·증시 급등과 맞세워 상쇄 구도로 정리하고, 그 결과를 중립 결론의 근거로 삼은 점",
+      "다올의 국고10Y 1M -55.5bp(중기 강세 누적)를 끌어와 되돌림 여지라는 별도 관점을 추가한 점",
+      "유진의 야간 원/달러 1,340원과 snapshot의 D-1 종가 1,346.97을 대조해 환율 경로를 보조 지표 전망에 연결한 점"
+    ],
+    "explanation": "up/down 드라이버의 대부분이 유진 리포트의 '국내 채권시장 동향'과 '전망 및 향후 주요 이벤트' 문단(베어 플래트닝, 유가 급락과 주가 상승 상쇄, 3년물 입찰 부진, CPI 경계, 원/달러 급락과 외국인 국채선물 순매수)을 거의 그대로 옮긴 것이다. '유가 급락과 주가 상승이 상쇄되며 금리 상승'이라는 유진의 해석이 사실상 중립 결론의 골격이며, AI 고유의 재해석은 크기 비교 수준에 그친다."
+  },
+  "scores": {
+    "evidence_fidelity": 3,
+    "invalidation_quality": 3,
+    "reasoning_quality": 3
+  }
+}

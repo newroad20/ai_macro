@@ -1,0 +1,86 @@
+{
+  "schema_version": "0.1",
+  "track": "A",
+  "trade_date": "2026-11-10",
+  "prompt_version": "A_v1.1",
+  "model_id": "claude-sonnet-5-5",
+  "executed_at": "2026-11-10T09:02:55+09:00",
+  "input_manifest_sha256": "792d597fea0f1968c00d822a66854527b1de1c03abbbdeda97b29ffd2bfd8872",
+  "primary": {
+    "instrument": "ktb10y_fut",
+    "direction": "neutral",
+    "prob": {
+      "up": 0.2,
+      "neutral": 0.6,
+      "down": 0.2
+    },
+    "expected_ticks": -2,
+    "confidence": "low",
+    "duration_view": "neutral"
+  },
+  "secondary": {
+    "ktb3y_fut": {
+      "direction": "neutral",
+      "expected_ticks": -1
+    },
+    "kospi200": {
+      "direction": "up",
+      "expected_return_pct": 0.6
+    },
+    "usdkrw": {
+      "direction": "neutral",
+      "expected_change_krw": -1.5
+    }
+  },
+  "rationale": {
+    "up_drivers": [
+      {
+        "factor": "유가 급락·중동 긴장 완화로 인플레 우려 완화",
+        "evidence": "WTI -4.9%, 트럼프 대이란 재공격 가능성 매우 낮다고 발언 (유진)",
+        "source": "eugene"
+      },
+      {
+        "factor": "원/달러 하락과 외국인 국채선물 매수",
+        "evidence": "원/달러 1,347.10 -0.7%, 외국인 LKTB +171 (유진 표 1D)",
+        "source": "eugene"
+      },
+      {
+        "factor": "국내 금리 1개월 큰 폭 하락 후 되돌림 여부",
+        "evidence": "국고 10Y 1M -55.5bp (다올 표)",
+        "source": "daol"
+      }
+    ],
+    "down_drivers": [
+      {
+        "factor": "미 금리 소폭 상승과 위험선호",
+        "evidence": "UST10Y +2.0bp(4.88%), S&P500 +2.35%, Nasdaq +2.74%",
+        "source": "us_market"
+      },
+      {
+        "factor": "미 3년물 입찰 부진 및 CPI 경계",
+        "evidence": "국채 3년물 입찰 부진, 10월 CPI 발표 예정 (유진)",
+        "source": "eugene"
+      },
+      {
+        "factor": "국내 증시 반등 가능성",
+        "evidence": "KOSPI 전일 -0.81%, 미 증시 급등 (다올·snapshot)",
+        "source": "daol"
+      }
+    ],
+    "already_priced_in": [
+      "D-1 국내 금리 상승 후 일부 반납 (10년 선물 +0.02, 3년 선물 0.0)",
+      "야간 원/달러 1,340.00 수준 반영 (유진)",
+      "중동 긴장 완화에 따른 유가 급락"
+    ],
+    "invalidation_conditions": [
+      "10년 국채선물 종가가 전일 종가 대비 +17틱 이상 (109.56 이상)",
+      "10년 국채선물 종가가 전일 종가 대비 -17틱 이하 (109.22 이하)",
+      "원/달러 종가가 전일 대비 +10원 이상"
+    ],
+    "low_confidence_reasons": [
+      "미 금리 변동 +2bp로 작고 유가 하락과 위험선호가 상충",
+      "미 CPI 발표 전 관망으로 국내 변동성 제한",
+      "야간 선물 종가 정보 없음"
+    ]
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": "0.1",
+  "track": "A",
+  "trade_date": "2026-11-10",
+  "prompt_version": "A_news_v1.0",
+  "model_id": "claude-sonnet-5-5",
+  "executed_at": "2026-11-10T16:30:35+09:00",
+  "input_manifest_sha256": "c5c71d992180fbbe805bbeccb524bce8ebce6ba035fbcd5cba16b9113b69a7ef",
+  "primary": {
+    "instrument": "ktb10y_fut",
+    "direction": "neutral",
+    "prob": {
+      "up": 0.2,
+      "neutral": 0.55,
+      "down": 0.25
+    },
+    "expected_ticks": -3,
+    "confidence": "low",
+    "duration_view": "neutral"
+  },
+  "secondary": {
+    "ktb3y_fut": {
+      "direction": "neutral",
+      "expected_ticks": -2
+    },
+    "kospi200": {
+      "direction": "up",
+      "expected_return_pct": 1.8
+    },
+    "usdkrw": {
+      "direction": "down",
+      "expected_change_krw": -5
+    }
+  },
+  "rationale": {
+    "up_drivers": [
+      {
+        "factor": "유가 급락·중동 긴장 완화",
+        "evidence": "Eugene: WTI 86.41달러 1D -4.9%, 1W -10.4%. 트럼프 대이란 공격 재개 가능성 매우 낮다고 발언",
+        "source": "eugene"
+      },
+      {
+        "factor": "원화 강세 기조",
+        "evidence": "Eugene: 원/달러 1,347.10원 -9.5원, 야간 1,340.00원",
+        "source": "eugene"
+      }
+    ],
+    "down_drivers": [
+      {
+        "factor": "미국 금리 상승과 위험선호 확대",
+        "evidence": "snapshot: UST10Y +2.0bp(4.88%), S&P500 +2.35%, Nasdaq +2.74%. Eugene: 미국 2Y +5.0bp, 3년물 입찰 부진",
+        "source": "us_market"
+      },
+      {
+        "factor": "주식 반등에 따른 국내 채권 약세 압력",
+        "evidence": "Daol: KOSPI 5,018.9 1D -0.81%, 1W -14.34%. 간밤 미국 증시 급등으로 국내 증시 반등 예상",
+        "source": "daol"
+      }
+    ],
+    "already_priced_in": [
+      "D-1 국내 금리 상승 후 일부 반납(10년 선물 +2틱, 3년 -4틱 마감)",
+      "미국 고용 서프라이즈 영향은 D-1 국내장에 반영",
+      "D-1 원화 강세와 외국인 선물 매수 일부 반영"
+    ],
+    "invalidation_conditions": [
+      "10년 국채선물 종가가 전일 종가(109.39) 대비 -16틱 이하 또는 +16틱 이상",
+      "KOSPI200 종가가 전일 대비 +0.5% 미만 상승 또는 하락",
+      "원/달러 종가가 전일 대비 +3원 이상"
+    ],
+    "low_confidence_reasons": [
+      "미국 금리 상승(+2bp)은 소폭이고 유가 하락과 위험선호 확대가 상충",
+      "미국 CPI 발표를 앞두고 방향성이 약함",
+      "뉴스 원문은 읽지 않고 리포트와 스냅샷만 사용"
+    ]
+  }
+}

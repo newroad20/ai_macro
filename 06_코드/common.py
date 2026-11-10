@@ -14,6 +14,7 @@ CODE = Path(__file__).resolve().parent
 SCHEMAS = CODE / "schemas"
 KST = timezone(timedelta(hours=9))  # 한국은 서머타임이 없으므로 고정 오프셋
 TRACKS = ("A", "B")
+BASE_ARM = "base"  # 기본 예측 (리포트 2개 + 스냅샷). 비교군은 설정 tracks.<T>.arms 에 정의
 
 
 def fail(msg):
@@ -48,6 +49,20 @@ def at_time(date, hhmm):
     return datetime.strptime(date, "%Y-%m-%d").replace(hour=hh, minute=mm, tzinfo=KST)
 
 
+def arm_cfg(tcfg, arm):
+    """비교군 설정. base 는 None (트랙 설정 그대로)."""
+    if arm in (None, BASE_ARM):
+        return None
+    arms = tcfg.get("arms", {})
+    if arm not in arms:
+        fail(f"알 수 없는 비교군: {arm} (설정된 비교군: {', '.join(arms) or '없음'})")
+    return arms[arm]
+
+
+def arm_names(tcfg):
+    return [BASE_ARM, *tcfg.get("arms", {})]
+
+
 def neutral_band(tcfg, dry):
     """정식 실행은 확정값만, 시험 실행은 미확정이면 임시값."""
     if tcfg["neutral_band_ticks"] is not None:
@@ -60,6 +75,7 @@ def neutral_band(tcfg, dry):
 # ---- 경로 ----
 # 정식: 02_시장데이터/{스냅샷,정답,리포트방향}/<T>/<날짜>.json, 04_예측결과/<T>/, 05_평가결과/<T>/
 # 시험: B는 기존 위치(06_코드/dryrun, 99_로그/dryrun) 유지, A는 그 아래 A/ 하위 폴더
+# 비교군(arm): 예측·평가·시험 로그만 <기본 경로>/arms/<arm>/ 에 따로 둔다. 스냅샷·정답은 공유.
 
 def snapshot_path(track, date, dry=False):
     if dry:
@@ -81,17 +97,30 @@ def report_tag_path(track, date):
     return ROOT / "02_시장데이터" / "리포트방향" / track / f"{date}.json"
 
 
-def prediction_dir(track):
-    return ROOT / "04_예측결과" / track
+def _arm(d, arm):
+    return d if arm in (None, BASE_ARM) else d / "arms" / arm
 
 
-def eval_dir(track):
-    return ROOT / "05_평가결과" / track
+def prediction_dir(track, arm=None):
+    return _arm(ROOT / "04_예측결과" / track, arm)
 
 
-def dryrun_log_dir(track):
+def eval_dir(track, arm=None):
+    return _arm(ROOT / "05_평가결과" / track, arm)
+
+
+def dryrun_log_dir(track, arm=None):
     d = ROOT / "99_로그" / "dryrun"
-    return d if track == "B" else d / track
+    return _arm(d if track == "B" else d / track, arm)
+
+
+def research_dir(date):
+    return ROOT / "01_리서치_원본" / date
+
+
+def news_dir(date):
+    """뉴스 수집 결과 폴더: 01_리서치_원본/<날짜>/news/{bond,equity}/articles/*.txt"""
+    return research_dir(date) / "news"
 
 
 def previous_answers(track, date, dry=False, n=2):

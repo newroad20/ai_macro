@@ -6,6 +6,8 @@
 정식 실행:  python run_prediction.py 2026-11-10                 # A: 08:45 전에 끝나야 정시
 시험 실행:  python run_prediction.py 2026-11-06 --dry-run       # 스냅샷: 06_코드/dryrun/A/<날짜>.snapshot.json
 B 트랙:     python run_prediction.py 2026-11-09 --track B --dry-run
+뉴스 비교군: python run_prediction.py 2026-11-11 --arm news    # 기본 예측과 별도 세션·별도 저장
+            (뉴스: 01_리서치_원본/<날짜>/news/{bond,equity}/articles/*.txt, 결과: 04_예측결과/A/arms/news/)
 
 설계 원칙
 - 예측 세션은 임시 폴더의 입력 파일만 본다 (--safe-mode, Read 도구만, 폴더 밖 읽기는 권한 거부).
@@ -19,8 +21,10 @@ import json
 import shutil
 import subprocess
 import sys
+import re
 import tempfile
 from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -61,8 +65,86 @@ def timing_problems(snap, tcfg, run_at=None):
     return problems
 
 
-def build_package(snap, pdf_dir, dest):
-    """snapshot.json + report_<source>.pdf + MANIFEST.json 을 만들고 manifest 해시를 반환."""
+# ---------------- 뉴스 (비교군 news) ----------------
+
+def _article_header(path):
+    head = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines()[:12]:
+        if line.startswith("====="):
+            break
+        if ":" in line:
+            k, v = line.split(":", 1)
+            head[k.strip()] = v.strip()
+    return head
+
+
+def _collected_at(profile_dir):
+    """article_list.txt 의 '생성: YYYY-MM-DD HH:MM' (KST) -> datetime | None"""
+    lst = profile_dir / "article_list.txt"
+    if not lst.exists():
+        return None
+    m = re.search(r"생성:\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})", lst.read_text(encoding="utf-8", errors="replace"))
+    return datetime.strptime(m.group(1), "%Y-%m-%d %H:%M").replace(tzinfo=cm.KST) if m else None
+
+
+def build_news(date, profiles, cutoff, dest):
+    """기사 원문을 관점별로 묶어 dest/news/<profile>.txt (기사마다 '### [<profile>_NN]' 머리) 와 INDEX.md 를 만든다.
+
+    기사를 파일 하나씩 두면 모델이 목록만 보고 원문을 열지 않는 경우가 있어(11/10 시험) 관점별 한 파일로 묶는다.
+
+    반환: {"problems": [late 사유], "included": n, "excluded": [(파일, 사유)], "profiles": {...}}
+    - 수집 생성 시각이 컷오프 이후면 late 사유
+    - 발행 시각이 컷오프 이후이거나 읽을 수 없는 기사는 제외 (누수 방지)
+    - 수집 파이프라인의 LLM 요약(briefing/state/xlsx)은 넣지 않는다
+    """
+    src_root = cm.news_dir(date)
+    info = {"problems": [], "included": 0, "excluded": [], "profiles": {}}
+    rows = []
+    out = dest / "news"
+    out.mkdir(parents=True, exist_ok=True)
+    for prof in profiles:
+        pdir = src_root / prof
+        arts = sorted((pdir / "articles").glob("*.txt")) if (pdir / "articles").exists() else []
+        collected = _collected_at(pdir)
+        info["profiles"][prof] = {"collected_at": cm.kst_str(collected) if collected else None, "articles": len(arts)}
+        if not arts:
+            info["problems"].append(f"뉴스 {prof} 기사 없음: {pdir / 'articles'}")
+            continue
+        if collected is None:
+            info["problems"].append(f"뉴스 {prof} 수집 시각을 확인할 수 없음 (article_list.txt '생성:')")
+        elif collected > cutoff:
+            info["problems"].append(f"뉴스 {prof} 수집({collected:%H:%M})이 컷오프({cutoff:%H:%M}) 이후")
+        chunks = []
+        for i, a in enumerate(arts, 1):
+            h = _article_header(a)
+            try:
+                pub = parsedate_to_datetime(h["발행"]).astimezone(cm.KST)
+            except (KeyError, TypeError, ValueError):
+                info["excluded"].append((a.name, "발행 시각 없음/형식 오류"))
+                continue
+            if pub > cutoff:
+                info["excluded"].append((a.name, f"발행 {pub:%m-%d %H:%M}이 컷오프 이후"))
+                continue
+            name = f"{prof}_{i:02d}"
+            body = a.read_text(encoding="utf-8", errors="replace").strip()
+            chunks.append(f"### [{name}] 발행 {pub:%m-%d %H:%M} KST\n\n{body}\n")
+            rows.append((pub, name, prof, h.get("매체", "?"), h.get("관련도", "?"), h.get("제목", a.stem)))
+        if chunks:
+            (out / f"{prof}.txt").write_text("\n\n".join(chunks), encoding="utf-8")
+    info["included"] = len(rows)
+    if rows:
+        lines = [f"# 뉴스 목록 ({date} 개장 전 수집, 발행 시각 순)", "",
+                 "원문은 관점별 파일 news/<관점>.txt 안에 '### [기사 ID]' 머리로 들어 있다.",
+                 "발행 시각은 KST. 국내 D-1 정규장 마감은 D-1 15:45 KST. 같은 기사가 두 관점에 모두 있을 수 있다.", "",
+                 "| 기사 ID | 관점 | 매체 | 발행(KST) | 관련도 | 제목 |", "|---|---|---|---|---|---|"]
+        for pub, name, prof, media, score, title in sorted(rows):
+            lines.append(f"| {name} | {prof} | {media} | {pub:%m-%d %H:%M} | {score} | {title.replace('|', '/')} |")
+        (out / "INDEX.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return info
+
+
+def build_package(snap, pdf_dir, dest, news_profiles=None, cutoff=None):
+    """snapshot.json + report_<source>.pdf (+ news/) + MANIFEST.json 을 만든다. (manifest 해시, 뉴스 정보) 반환."""
     dest.mkdir(parents=True, exist_ok=True)
     (dest / "snapshot.json").write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")
     for r in snap["reports"]:
@@ -70,11 +152,13 @@ def build_package(snap, pdf_dir, dest):
         if not src.exists():
             fail(f"리포트 파일 없음: {src}")
         shutil.copyfile(src, dest / f"report_{r['source']}.pdf")
-    files = {p.name: sha256_file(p) for p in sorted(dest.iterdir()) if p.name != "MANIFEST.json"}
+    news = build_news(snap["trade_date"], news_profiles, cutoff, dest) if news_profiles else None
+    files = {p.relative_to(dest).as_posix(): sha256_file(p) for p in sorted(dest.rglob("*"))
+             if p.is_file() and p.name != "MANIFEST.json"}
     manifest_hash = hashlib.sha256("\n".join(f"{k}:{v}" for k, v in sorted(files.items())).encode()).hexdigest()
     (dest / "MANIFEST.json").write_text(
         json.dumps({"files": files, "manifest_sha256": manifest_hash}, indent=2), encoding="utf-8")
-    return manifest_hash
+    return manifest_hash, news
 
 
 def model_output_schema():
@@ -87,11 +171,14 @@ def model_output_schema():
     return s
 
 
-def run_claude(workdir, system_prompt, model, timeout):
+def run_claude(workdir, system_prompt, model, timeout, with_news=False):
     cmd = ["claude", "-p", "--safe-mode", "--no-session-persistence", "--tools", "Read",
            "--model", model, "--output-format", "stream-json", "--verbose",
            "--system-prompt", system_prompt, "--json-schema", json.dumps(model_output_schema())]
     user_prompt = "작업 폴더의 snapshot.json, report_daol.pdf, report_eugene.pdf를 읽고, 지침에 따라 예측을 JSON으로 출력하세요."
+    if with_news:
+        user_prompt = ("작업 폴더의 snapshot.json, report_daol.pdf, report_eugene.pdf, news/INDEX.md, news/bond.txt, "
+                       "news/equity.txt를 모두 읽고, 지침에 따라 예측을 JSON으로 출력하세요.")
     return subprocess.run(cmd, input=user_prompt, cwd=workdir, capture_output=True, text=True,
                           encoding="utf-8", timeout=timeout)
 
@@ -139,11 +226,14 @@ def main():
     ap.add_argument("--snapshot", help="스냅샷 경로 (기본: 정식 02_시장데이터/스냅샷/<트랙>/, 시험 06_코드/dryrun/...)")
     ap.add_argument("--allow-late", action="store_true", help="late 상태로 실행하고 04_예측결과/<트랙>/late/ 에 저장")
     ap.add_argument("--allow-unfrozen", action="store_true", help="v0_freeze 와 다른 모델·프롬프트로 정식 실행 (의도한 변경일 때만)")
+    ap.add_argument("--arm", default=cm.BASE_ARM, help="비교군 (기본 base = 리포트만, news = 리포트+뉴스)")
     args = ap.parse_args()
-    date, track = args.date, args.track
+    date, track, arm = args.date, args.track, args.arm
 
     cfg = cm.config()
     tcfg = cm.track_cfg(cfg, track)
+    acfg = cm.arm_cfg(tcfg, arm)
+    arm_tag = "" if acfg is None else f" arm={arm}"
     if args.snapshot:
         snap_path = Path(args.snapshot)
         if not snap_path.exists():  # 06_코드 기준 상대경로도 허용
@@ -159,9 +249,13 @@ def main():
     if snap["trade_date"] != date or snap["track"] != track:
         fail(f"스냅샷({snap['track']} {snap['trade_date']})과 인자({track} {date})가 다름")
 
-    out_dir = cm.prediction_dir(track)
+    out_dir = cm.prediction_dir(track, arm)
     started = kst_now()
     late_problems = timing_problems(snap, tcfg, started)
+    cutoff = cm.at_time(date, tcfg["cutoff_time_kst"])
+    news_profiles = acfg.get("news_profiles") if acfg else None
+    if news_profiles and not cm.news_dir(date).exists():
+        fail(f"뉴스 폴더 없음: {cm.news_dir(date)}  (news/<profile>/articles/*.txt 형태로 넣기)")
     is_late = bool(late_problems)
     neutral_band = cm.neutral_band(tcfg, args.dry_run)
     if not args.dry_run:
@@ -179,9 +273,9 @@ def main():
     for p in late_problems:
         print(f"[late{' (시험이라 경고만)' if args.dry_run else ''}] {p}")
 
-    prompt_path = CODE / tcfg["prompt_file"]
+    prompt_path = CODE / (acfg or tcfg)["prompt_file"]
     prompt_version = prompt_path.stem.split("_", 1)[1]
-    freeze = cfg.get("v0_freeze")
+    freeze = cfg.get("v0_freeze") if acfg is None else acfg.get("freeze")
     if freeze and track == "A" and date >= freeze["from"]:
         drift = [f"{k}: 설정 {v} / 고정 {freeze[k]}" for k, v in
                  (("model", cfg["runner"]["model"]), ("prompt_version", prompt_version)) if v != freeze[k]]
@@ -196,20 +290,36 @@ def main():
     stamp = started.strftime("%Y%m%dT%H%M%S")
     log_dir = ROOT / "99_로그"
     (log_dir / "runs").mkdir(parents=True, exist_ok=True)
-    pdf_dir = ROOT / "01_리서치_원본" / date
+    pdf_dir = cm.research_dir(date)
 
     with tempfile.TemporaryDirectory(prefix="ai_macro_run_") as tmp:
         work = Path(tmp)
-        manifest_hash = build_package(snap, pdf_dir, work)
+        manifest_hash, news = build_package(snap, pdf_dir, work, news_profiles, cutoff)
+        if news:
+            print(f"[뉴스] 포함 {news['included']}건, 제외 {len(news['excluded'])}건  "
+                  + ", ".join(f"{k} 수집 {v['collected_at'][11:16] if v['collected_at'] else '?'}"
+                              for k, v in news["profiles"].items()))
+            for name, why in news["excluded"]:
+                print(f"  제외: {name} ({why})")
+            if news["included"] == 0:
+                fail("포함할 뉴스 기사가 없음")
+            late_problems += news["problems"]
+            is_late = bool(late_problems)
+            for p in news["problems"]:
+                print(f"[late{' (시험이라 경고만)' if args.dry_run else ''}] {p}")
+            if is_late and not args.dry_run and not args.allow_late:
+                fail("late 상태:\n  " + "\n  ".join(late_problems) + "\n  --allow-late 로 late 분리 저장 가능")
         if not args.dry_run:
-            shutil.copytree(work, ROOT / "03_가공데이터" / track / date, dirs_exist_ok=True)
-        print(f"[실행] track={track} model={cfg['runner']['model']} prompt={prompt_version} manifest={manifest_hash[:12]}…")
+            pkg_dir = ROOT / "03_가공데이터" / track / ("" if acfg is None else f"arms/{arm}") / date
+            shutil.copytree(work, pkg_dir, dirs_exist_ok=True)
+        print(f"[실행] track={track}{arm_tag} model={cfg['runner']['model']} prompt={prompt_version} manifest={manifest_hash[:12]}…")
         try:
-            proc = run_claude(work, system_prompt, cfg["runner"]["model"], cfg["runner"]["timeout_seconds"])
+            proc = run_claude(work, system_prompt, cfg["runner"]["model"], cfg["runner"]["timeout_seconds"],
+                              with_news=bool(news_profiles))
         except subprocess.TimeoutExpired:
             fail("claude 실행 시간 초과")
 
-    raw_log = log_dir / "runs" / f"{date}_{track}_{stamp}.jsonl"
+    raw_log = log_dir / "runs" / f"{date}_{track}{'' if acfg is None else '_' + arm}_{stamp}.jsonl"
     raw_log.write_text(proc.stdout, encoding="utf-8")
     init, result = parse_events(proc.stdout)
     status, detail = "ok", ""
@@ -228,11 +338,14 @@ def main():
             status, detail = "invalid", "; ".join(problems)
 
     usage = result.get("usage", {})
-    summary = {"date": date, "track": track, "dry_run": args.dry_run, "late": is_late, "status": status,
+    summary = {"date": date, "track": track, "arm": arm, "dry_run": args.dry_run, "late": is_late, "status": status,
                "model_id": init.get("model"), "prompt_version": prompt_version,
                "executed_at": kst_str(started), "cost_usd": result.get("total_cost_usd"),
                "duration_ms": result.get("duration_ms"), "output_tokens": usage.get("output_tokens"),
                "detail": detail, "raw_log": str(raw_log.relative_to(ROOT))}
+    if news:
+        summary["news"] = {"included": news["included"], "excluded": len(news["excluded"]),
+                           "collected_at": {k: v["collected_at"] for k, v in news["profiles"].items()}}
     with open(log_dir / "runs.log.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(summary, ensure_ascii=False) + "\n")
 
@@ -241,13 +354,13 @@ def main():
         sys.exit(1)
 
     if args.dry_run:
-        dest = cm.dryrun_log_dir(track) / f"{date}_{stamp}.prediction.json"
+        dest = cm.dryrun_log_dir(track, arm) / f"{date}_{stamp}.prediction.json"
     else:
         dest = (out_dir / "late" if is_late else out_dir) / f"{date}.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(pred, ensure_ascii=False, indent=2), encoding="utf-8")
     p = pred["primary"]
-    print(f"[완료] {dest.relative_to(ROOT)}\n  10Y선물: {p['direction']} / 틱 {p['expected_ticks']:+} / 확신 {p['confidence']}"
+    print(f"[완료]{arm_tag} {dest.relative_to(ROOT)}\n  10Y선물: {p['direction']} / 틱 {p['expected_ticks']:+} / 확신 {p['confidence']}"
           f" / 확률 {p['prob']}\n  비용(표시값) ${summary['cost_usd']}, {summary['duration_ms']}ms")
 
 
